@@ -40,7 +40,7 @@ class FaceVerifier @Inject constructor() {
         return listOf(first, second ?: first)
     }
 
-    private fun euclideanDistance(a: FloatArray, b: FloatArray): Float {
+    fun euclideanDistance(a: FloatArray, b: FloatArray): Float {
         var sum = 0f
         for (i in a.indices) {
             val diff = a[i] - b[i]
