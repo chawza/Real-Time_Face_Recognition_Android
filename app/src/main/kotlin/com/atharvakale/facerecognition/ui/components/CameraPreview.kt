@@ -44,8 +44,10 @@ fun CameraPreview(
                 )
                 scaleType = PreviewView.ScaleType.FILL_CENTER
             }
-
-            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+            previewView
+        },
+        update = { previewView ->
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
 
@@ -73,9 +75,7 @@ fun CameraPreview(
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
-            }, ContextCompat.getMainExecutor(ctx))
-
-            previewView
+            }, ContextCompat.getMainExecutor(context))
         },
         modifier = modifier
     )
