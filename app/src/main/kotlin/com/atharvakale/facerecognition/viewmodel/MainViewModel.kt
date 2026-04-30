@@ -1,14 +1,25 @@
 package com.atharvakale.facerecognition.viewmodel
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.RectF
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.atharvakale.facerecognition.data.FaceRepository
 import com.atharvakale.facerecognition.data.datastore.SettingsRepository
 import com.atharvakale.facerecognition.ml.AnalysisResult
+import com.atharvakale.facerecognition.ml.FaceDetectionAnalyzer
+import com.atharvakale.facerecognition.ml.FaceEmbeddingExtractor
+import com.atharvakale.facerecognition.ml.FacePreprocessor
 import com.atharvakale.facerecognition.ml.FaceVerifier
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetector
 import androidx.camera.core.CameraSelector
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +27,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 enum class ScreenMode { RECOGNIZE, ADD_FACE }
@@ -26,28 +39,31 @@ data class MainUiState(
     val distance: Float = Float.MAX_VALUE,
     val secondNearestName: String = "",
     val secondNearestDistance: Float = Float.MAX_VALUE,
-    val facePreview: Bitmap? = null,
     val registeredFaceNames: List<String> = emptyList(),
     val developerMode: Boolean = false,
     val distanceThreshold: Float = 1.0f,
     val isAnalyzing: Boolean = true,
     val currentEmbedding: FloatArray? = null,
     val cameraLensFacing: Int = CameraSelector.LENS_FACING_BACK,
-    val flipX: Boolean = false
+    val flipX: Boolean = false,
+    val galleryReady: Boolean = false
 )
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val faceRepository: FaceRepository,
     private val settingsRepository: SettingsRepository,
-    private val faceVerifier: FaceVerifier
+    private val faceVerifier: FaceVerifier,
+    private val embeddingExtractor: FaceEmbeddingExtractor,
+    val faceDetectionAnalyzer: FaceDetectionAnalyzer,
+    private val faceDetector: FaceDetector,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
     private var pendingEmbedding: FloatArray? = null
-    private var pendingBitmap: Bitmap? = null
 
     init {
         viewModelScope.launch {
@@ -71,10 +87,6 @@ class MainViewModel @Inject constructor(
         if (_uiState.value.mode != ScreenMode.RECOGNIZE) {
             if (result != null) {
                 pendingEmbedding = result.embedding
-                pendingBitmap = result.faceBitmap
-                _uiState.value = _uiState.value.copy(
-                    facePreview = result.faceBitmap
-                )
             }
             return
         }
@@ -92,8 +104,7 @@ class MainViewModel @Inject constructor(
             val registered = faceRepository.getAllOnce()
             if (registered.isEmpty()) {
                 _uiState.value = _uiState.value.copy(
-                    recognizedName = "Add Face",
-                    facePreview = result.faceBitmap
+                    recognizedName = "Add Face"
                 )
                 return@launch
             }
@@ -113,16 +124,50 @@ class MainViewModel @Inject constructor(
                         recognizedName = displayName,
                         distance = nearest.distance,
                         secondNearestName = nearestTwo.getOrNull(1)?.name ?: "",
-                        secondNearestDistance = nearestTwo.getOrNull(1)?.distance ?: Float.MAX_VALUE,
-                        facePreview = result.faceBitmap
+                        secondNearestDistance = nearestTwo.getOrNull(1)?.distance ?: Float.MAX_VALUE
                     )
                 } else {
                     _uiState.value = state.copy(
                         recognizedName = displayName,
-                        distance = nearest.distance,
-                        facePreview = result.faceBitmap
+                        distance = nearest.distance
                     )
                 }
+            }
+        }
+    }
+
+    fun processGalleryImage(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(galleryReady = false)
+            try {
+                val embedding = withContext(Dispatchers.IO) {
+                    val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext null
+                    val bitmap = BitmapFactory.decodeStream(inputStream)
+                    inputStream.close()
+                    if (bitmap == null) return@withContext null
+
+                    val inputImage = InputImage.fromBitmap(bitmap, 0)
+                    val faces: List<com.google.mlkit.vision.face.Face> = faceDetector.process(inputImage).await()
+                    if (faces.isEmpty()) {
+                        bitmap.recycle()
+                        return@withContext null
+                    }
+
+                    val face = faces[0]
+                    val boundingBox = RectF(face.boundingBox)
+                    val cropped = FacePreprocessor.cropFace(bitmap, boundingBox)
+                    val scaled = FacePreprocessor.scaleToInputSize(cropped)
+                    embeddingExtractor.getEmbedding(scaled)
+                }
+
+                if (embedding != null) {
+                    pendingEmbedding = embedding
+                    _uiState.value = _uiState.value.copy(
+                        mode = ScreenMode.ADD_FACE,
+                        galleryReady = true
+                    )
+                }
+            } catch (_: Exception) {
             }
         }
     }
@@ -132,10 +177,10 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             faceRepository.registerFace(name, embedding)
             pendingEmbedding = null
-            pendingBitmap = null
             _uiState.value = _uiState.value.copy(
                 mode = ScreenMode.RECOGNIZE,
-                isAnalyzing = true
+                isAnalyzing = true,
+                galleryReady = false
             )
         }
     }
@@ -167,7 +212,8 @@ class MainViewModel @Inject constructor(
     fun setMode(mode: ScreenMode) {
         _uiState.value = _uiState.value.copy(
             mode = mode,
-            isAnalyzing = mode == ScreenMode.RECOGNIZE
+            isAnalyzing = mode == ScreenMode.RECOGNIZE,
+            galleryReady = false
         )
     }
 
@@ -185,10 +231,8 @@ class MainViewModel @Inject constructor(
     }
 
     fun saveFaces() {
-        // Room auto-persists; this is a no-op kept for API compatibility
     }
 
     fun loadFaces() {
-        // Room auto-loads via Flow; this is a no-op kept for API compatibility
     }
 }
