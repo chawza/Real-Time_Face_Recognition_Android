@@ -69,7 +69,7 @@ fun RecognitionScreen(
                 lensFacing = lensFacing,
                 flipX = lensFacing == CameraSelector.LENS_FACING_FRONT,
                 analyzer = viewModel.faceDetectionAnalyzer,
-                onResult = { result -> viewModel.onFaceAnalyzed(result, 0) },
+                onResult = { result -> viewModel.onFaceAnalyzed(result) },
                 modifier = Modifier.fillMaxSize()
             )
 
@@ -123,15 +123,17 @@ fun RecognitionScreen(
                 .padding(top = 16.dp)
         )
 
-        MetricsPanel(
-            matchedName = uiState.matchedName,
-            distance = uiState.distance,
-            confidence = uiState.confidence,
-            inferenceTimeMs = uiState.inferenceTimeMs,
-            fps = uiState.fps,
-            dbFaceCount = uiState.dbFaceCount,
-            statusText = uiState.statusText,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
+            MetricsPanel(
+                matchedName = uiState.matchedName,
+                confidence = uiState.confidence,
+                detectionTimeMs = uiState.detectionTimeMs,
+                preprocessingTimeMs = uiState.preprocessingTimeMs,
+                embeddingTimeMs = uiState.embeddingTimeMs,
+                similarityTimeMs = uiState.similarityTimeMs,
+                fps = uiState.fps,
+                dbFaceCount = uiState.dbFaceCount,
+                statusText = uiState.statusText,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
     }
 }

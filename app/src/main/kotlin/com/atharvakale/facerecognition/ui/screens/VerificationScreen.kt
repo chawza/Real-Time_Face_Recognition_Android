@@ -145,7 +145,7 @@ fun VerificationScreen(
                         lensFacing = lensFacing,
                         flipX = lensFacing == CameraSelector.LENS_FACING_FRONT,
                         analyzer = viewModel.faceDetectionAnalyzer,
-                        onResult = { result -> viewModel.onFaceAnalyzed(result, 0) },
+                        onResult = { result -> viewModel.onFaceAnalyzed(result) },
                         modifier = Modifier.fillMaxSize()
                     )
 
@@ -202,9 +202,11 @@ fun VerificationScreen(
 
                 MetricsPanel(
                     matchedName = if (uiState.isMatch) "MATCH" else "NO MATCH",
-                    distance = uiState.distance,
                     confidence = uiState.confidence,
-                    inferenceTimeMs = uiState.inferenceTimeMs,
+                    detectionTimeMs = uiState.detectionTimeMs,
+                    preprocessingTimeMs = uiState.preprocessingTimeMs,
+                    embeddingTimeMs = uiState.embeddingTimeMs,
+                    similarityTimeMs = uiState.similarityTimeMs,
                     fps = uiState.fps,
                     dbFaceCount = 1,
                     statusText = uiState.statusText,

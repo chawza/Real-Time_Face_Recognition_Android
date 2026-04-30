@@ -20,7 +20,10 @@ data class AnalysisResult(
     val embedding: FloatArray,
     val boundingBox: RectF,
     val imageWidth: Int,
-    val imageHeight: Int
+    val imageHeight: Int,
+    val detectionTimeMs: Long = 0,
+    val preprocessingTimeMs: Long = 0,
+    val embeddingTimeMs: Long = 0
 ) {
     override fun equals(other: Any?): Boolean = false
     override fun hashCode(): Int = embedding.contentHashCode()
@@ -54,11 +57,15 @@ class FaceDetectionAnalyzer @Inject constructor(
 
         val rotation = imageProxy.imageInfo.rotationDegrees
         val inputImage = InputImage.fromMediaImage(mediaImage, rotation)
+        val detectionStart = System.nanoTime()
 
         detector.process(inputImage)
             .addOnSuccessListener { faces ->
+                val detectionTimeMs = (System.nanoTime() - detectionStart) / 1_000_000
+
                 if (faces.isNotEmpty()) {
                     val face = faces[0]
+                    val preprocessStart = System.nanoTime()
                     val frameBmp = FacePreprocessor.yuvToBitmap(mediaImage)
                     val rotatedBmp = FacePreprocessor.rotateBitmap(frameBmp, rotation, false, false)
                     val boundingBox = RectF(face.boundingBox)
@@ -72,8 +79,16 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val rotatedWidth = if (rotation == 90 || rotation == 270) mediaImage.height else mediaImage.width
                     val rotatedHeight = if (rotation == 90 || rotation == 270) mediaImage.width else mediaImage.height
                     val scaled = FacePreprocessor.scaleToInputSize(finalFace)
+                    val preprocessingTimeMs = (System.nanoTime() - preprocessStart) / 1_000_000
+
+                    val embeddingStart = System.nanoTime()
                     val embedding = embeddingExtractor.getEmbedding(scaled)
-                    val result = AnalysisResult(scaled, embedding, boundingBox, rotatedWidth, rotatedHeight)
+                    val embeddingTimeMs = (System.nanoTime() - embeddingStart) / 1_000_000
+
+                    val result = AnalysisResult(
+                        scaled, embedding, boundingBox, rotatedWidth, rotatedHeight,
+                        detectionTimeMs, preprocessingTimeMs, embeddingTimeMs
+                    )
                     _latestResult.value = result
                     onResult(result)
                 } else {

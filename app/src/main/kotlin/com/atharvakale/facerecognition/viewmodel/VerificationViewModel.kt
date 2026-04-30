@@ -26,7 +26,10 @@ data class VerificationUiState(
     val distance: Float = Float.MAX_VALUE,
     val isMatch: Boolean = false,
     val confidence: Float = 0f,
-    val inferenceTimeMs: Long = 0,
+    val detectionTimeMs: Long = 0,
+    val preprocessingTimeMs: Long = 0,
+    val embeddingTimeMs: Long = 0,
+    val similarityTimeMs: Long = 0,
     val fps: Float = 0f,
     val statusText: String = "Select a face",
     val boundingBox: RectF? = null,
@@ -76,7 +79,7 @@ class VerificationViewModel @Inject constructor(
         )
     }
 
-    fun onFaceAnalyzed(result: AnalysisResult?, inferenceTimeMs: Long) {
+    fun onFaceAnalyzed(result: AnalysisResult?) {
         updateFps()
 
         val selected = _uiState.value.selectedFace
@@ -93,17 +96,24 @@ class VerificationViewModel @Inject constructor(
 
         viewModelScope.launch {
             val threshold = settingsRepository.distanceThreshold.first()
+
+            val similarityStart = System.nanoTime()
             val similarity = faceVerifier.cosineSimilarity(
                 result.embedding,
                 selected.embedding.toFloatArray()
             )
+            val similarityTimeMs = (System.nanoTime() - similarityStart) / 1_000_000
+
             val isMatch = similarity >= threshold
             val confidence = (similarity * 100f).coerceIn(0f, 100f)
             _uiState.value = _uiState.value.copy(
                 distance = 1f - similarity,
                 isMatch = isMatch,
                 confidence = confidence,
-                inferenceTimeMs = inferenceTimeMs,
+                detectionTimeMs = result.detectionTimeMs,
+                preprocessingTimeMs = result.preprocessingTimeMs,
+                embeddingTimeMs = result.embeddingTimeMs,
+                similarityTimeMs = similarityTimeMs,
                 fps = currentFps,
                 statusText = if (isMatch) "Match!" else "No match",
                 boundingBox = result.boundingBox,

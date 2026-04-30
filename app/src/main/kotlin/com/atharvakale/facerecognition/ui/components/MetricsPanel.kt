@@ -28,19 +28,20 @@ import com.atharvakale.facerecognition.ui.theme.UnknownRed
 @Composable
 fun MetricsPanel(
     matchedName: String,
-    distance: Float,
     confidence: Float,
-    inferenceTimeMs: Long,
+    detectionTimeMs: Long,
+    preprocessingTimeMs: Long,
+    embeddingTimeMs: Long,
+    similarityTimeMs: Long,
     fps: Float,
     dbFaceCount: Int,
     statusText: String,
     faceThumbnail: android.graphics.Bitmap? = null,
     modifier: Modifier = Modifier
 ) {
-    val nameColor = if (matchedName == "Unknown" || matchedName == "No DB" || matchedName == "No Face Detected") {
-        UnknownRed
-    } else {
-        MatchGreen
+    val nameColor = when (matchedName) {
+        "Unknown", "No DB", "No Face Detected", "NO MATCH" -> UnknownRed
+        else -> MatchGreen
     }
 
     Column(
@@ -68,7 +69,7 @@ fun MetricsPanel(
                 Text(
                     text = matchedName,
                     style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White
+                    color = nameColor
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -76,11 +77,28 @@ fun MetricsPanel(
                     style = MaterialTheme.typography.bodyLarge,
                     color = Teal200
                 )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Inference: $inferenceTimeMs ms",
+                    text = "Detection: ${detectionTimeMs} ms",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White
                 )
+                Text(
+                    text = "Preprocessing: ${preprocessingTimeMs} ms",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White
+                )
+                Text(
+                    text = "Embedding: ${embeddingTimeMs} ms",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White
+                )
+                Text(
+                    text = "Similarity: ${similarityTimeMs} ms",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
                         text = "FPS: ${"%.1f".format(fps)}",

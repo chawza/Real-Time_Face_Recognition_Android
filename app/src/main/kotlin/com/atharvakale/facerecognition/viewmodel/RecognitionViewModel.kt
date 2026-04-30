@@ -20,7 +20,10 @@ data class RecognitionUiState(
     val matchedName: String = "Initializing...",
     val distance: Float = Float.MAX_VALUE,
     val confidence: Float = 0f,
-    val inferenceTimeMs: Long = 0,
+    val detectionTimeMs: Long = 0,
+    val preprocessingTimeMs: Long = 0,
+    val embeddingTimeMs: Long = 0,
+    val similarityTimeMs: Long = 0,
     val fps: Float = 0f,
     val dbFaceCount: Int = 0,
     val statusText: String = "Initializing...",
@@ -51,7 +54,7 @@ class RecognitionViewModel @Inject constructor(
         }
     }
 
-    fun onFaceAnalyzed(result: AnalysisResult?, inferenceTimeMs: Long) {
+    fun onFaceAnalyzed(result: AnalysisResult?) {
         updateFps()
 
         if (result == null) {
@@ -72,13 +75,18 @@ class RecognitionViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     matchedName = "No DB",
                     statusText = "Face detected",
-                    inferenceTimeMs = inferenceTimeMs,
+                    detectionTimeMs = result.detectionTimeMs,
+                    preprocessingTimeMs = result.preprocessingTimeMs,
+                    embeddingTimeMs = result.embeddingTimeMs,
                     fps = currentFps
                 )
                 return@launch
             }
 
+            val similarityStart = System.nanoTime()
             val nearest = faceVerifier.findNearest(result.embedding, registered)
+            val similarityTimeMs = (System.nanoTime() - similarityStart) / 1_000_000
+
             if (nearest != null) {
                 val name = if (nearest.similarity >= threshold) nearest.name else "Unknown"
                 val confidence = (nearest.similarity * 100f).coerceIn(0f, 100f)
@@ -86,7 +94,10 @@ class RecognitionViewModel @Inject constructor(
                     matchedName = name,
                     distance = 1f - nearest.similarity,
                     confidence = confidence,
-                    inferenceTimeMs = inferenceTimeMs,
+                    detectionTimeMs = result.detectionTimeMs,
+                    preprocessingTimeMs = result.preprocessingTimeMs,
+                    embeddingTimeMs = result.embeddingTimeMs,
+                    similarityTimeMs = similarityTimeMs,
                     fps = currentFps,
                     statusText = "Face detected",
                     dbFaceCount = registered.size,
