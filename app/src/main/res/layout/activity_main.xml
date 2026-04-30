@@ -100,6 +100,16 @@
             android:visibility="visible"
             tools:visibility="visible" />
 
+        <Button
+            android:id="@+id/buttonGallery"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/round_bg"
+            android:text="Gallery"
+            android:textAlignment="center"
+            android:visibility="invisible" />
+
     </LinearLayout>
 
     <TextView
