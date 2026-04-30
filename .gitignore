@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# graphify auto-generated outputs
+graphify-out/
+generate_graph.py
