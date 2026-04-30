@@ -52,6 +52,7 @@ import com.google.mlkit.vision.face.FaceDetectorOptions;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
+import androidx.exifinterface.media.ExifInterface;
 import androidx.lifecycle.LifecycleOwner;
 
 import android.os.ParcelFileDescriptor;
@@ -73,6 +74,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
@@ -95,6 +97,7 @@ public class MainActivity extends AppCompatActivity {
     Interpreter tfLite;
     TextView reco_name,preview_info,textAbove_preview;
     Button recognize,camera_switch, actions;
+    Button add_from_gallery;
     ImageButton add_face;
     CameraSelector cameraSelector;
     boolean developerMode=false;
@@ -130,6 +133,16 @@ public class MainActivity extends AppCompatActivity {
         add_face=findViewById(R.id.imageButton);
         add_face.setVisibility(View.INVISIBLE);
 
+        add_from_gallery=findViewById(R.id.buttonGallery);
+        add_from_gallery.setVisibility(View.INVISIBLE);
+
+        add_from_gallery.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                loadphoto();
+            }
+        });
+
         SharedPreferences sharedPref = getSharedPreferences("Distance",Context.MODE_PRIVATE);
         distance = sharedPref.getFloat("distance",1.00f);
 
@@ -151,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
                 builder.setTitle("Select Action:");
 
                 // add a checkbox list
-                String[] names= {"View Recognition List","Update Recognition List","Save Recognitions","Load Recognitions","Clear All Recognitions","Import Photo (Beta)","Hyperparameters","Developer Mode"};
+                String[] names= {"View Recognition List","Update Recognition List","Save Recognitions","Load Recognitions","Clear All Recognitions","Import Photo","Hyperparameters","Developer Mode"};
 
                 builder.setItems(names, new DialogInterface.OnClickListener() {
                     @Override
@@ -238,6 +251,7 @@ public class MainActivity extends AppCompatActivity {
                  textAbove_preview.setText("Recognized Face:");
                 recognize.setText("Add Face");
                 add_face.setVisibility(View.INVISIBLE);
+                add_from_gallery.setVisibility(View.INVISIBLE);
                 reco_name.setVisibility(View.VISIBLE);
                 face_preview.setVisibility(View.INVISIBLE);
                 preview_info.setText("");
@@ -248,9 +262,10 @@ public class MainActivity extends AppCompatActivity {
                     textAbove_preview.setText("Face Preview: ");
                     recognize.setText("Recognize");
                     add_face.setVisibility(View.VISIBLE);
+                    add_from_gallery.setVisibility(View.VISIBLE);
                     reco_name.setVisibility(View.INVISIBLE);
                     face_preview.setVisibility(View.VISIBLE);
-                    preview_info.setText("1.Bring Face in view of Camera.\n\n2.Your Face preview will appear here.\n\n3.Click Add button to save face.");
+                    preview_info.setText("1.Bring Face in view of Camera.\n\n2.Your Face preview will appear here.\n\n3.Click Add button to save face.\n\n4.Or click Gallery to import a photo.");
 
 
                 }
@@ -1021,65 +1036,56 @@ public class MainActivity extends AppCompatActivity {
             if (requestCode == SELECT_PICTURE) {
                 Uri selectedImageUri = data.getData();
                 try {
-                    InputImage impphoto=InputImage.fromBitmap(getBitmapFromUri(selectedImageUri),0);
+                    Bitmap orientedBitmap = getBitmapFromUriOriented(selectedImageUri);
+                    InputImage impphoto = InputImage.fromBitmap(orientedBitmap, 0);
+                    face_preview.setImageBitmap(orientedBitmap);
+                    face_preview.setVisibility(View.VISIBLE);
                     detector.process(impphoto).addOnSuccessListener(new OnSuccessListener<List<Face>>() {
                         @Override
                         public void onSuccess(List<Face> faces) {
-
                             if(faces.size()!=0) {
                                 recognize.setText("Recognize");
                                 add_face.setVisibility(View.VISIBLE);
+                                add_from_gallery.setVisibility(View.VISIBLE);
                                 reco_name.setVisibility(View.INVISIBLE);
                                 face_preview.setVisibility(View.VISIBLE);
-                                preview_info.setText("1.Bring Face in view of Camera.\n\n2.Your Face preview will appear here.\n\n3.Click Add button to save face.");
+                                preview_info.setText("1.Bring Face in view of Camera.\n\n2.Your Face preview will appear here.\n\n3.Click Add button to save face.\n\n4.Or click Gallery to import a photo.");
                                 Face face = faces.get(0);
-//                                System.out.println(face);
 
-                                //write code to recreate bitmap from source
-                                //Write code to show bitmap to canvas
-
-                                Bitmap frame_bmp= null;
                                 try {
-                                    frame_bmp = getBitmapFromUri(selectedImageUri);
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                                Bitmap frame_bmp1 = rotateBitmap(frame_bmp, 0, flipX, false);
+                                    Bitmap frame_bmp = getBitmapFromUriOriented(selectedImageUri);
+                                    Bitmap frame_bmp1 = frame_bmp;
+                                    if(flipX)
+                                        frame_bmp1 = rotateBitmap(frame_bmp, 0, true, false);
 
-                                //face_preview.setImageBitmap(frame_bmp1);
-
-
-                                RectF boundingBox = new RectF(face.getBoundingBox());
-
-
-                                Bitmap cropped_face = getCropBitmapByCPU(frame_bmp1, boundingBox);
-
-                                Bitmap scaled = getResizedBitmap(cropped_face, 112, 112);
-                                // face_preview.setImageBitmap(scaled);
+                                    RectF boundingBox = new RectF(face.getBoundingBox());
+                                    Bitmap cropped_face = getCropBitmapByCPU(frame_bmp1, boundingBox);
+                                    Bitmap scaled = getResizedBitmap(cropped_face, 112, 112);
 
                                     recognizeImage(scaled);
                                     addFace();
-//                                System.out.println(boundingBox);
-                                try {
-                                    Thread.sleep(100);
-                                } catch (InterruptedException e) {
+                                } catch (IOException e) {
                                     e.printStackTrace();
+                                    start = true;
+                                    Toast.makeText(context, "Error processing image", Toast.LENGTH_SHORT).show();
                                 }
+                            } else {
+                                start = true;
+                                Toast.makeText(context, "No face detected in selected image", Toast.LENGTH_SHORT).show();
                             }
                         }
                     }).addOnFailureListener(new OnFailureListener() {
                         @Override
                         public void onFailure(@NonNull Exception e) {
-                            start=true;
-                            Toast.makeText(context, "Failed to add", Toast.LENGTH_SHORT).show();
+                            start = true;
+                            Toast.makeText(context, "Failed to process image", Toast.LENGTH_SHORT).show();
                         }
                     });
-                    face_preview.setImageBitmap(getBitmapFromUri(selectedImageUri));
                 } catch (IOException e) {
                     e.printStackTrace();
+                    start = true;
+                    Toast.makeText(context, "Failed to load image", Toast.LENGTH_SHORT).show();
                 }
-
-
             }
         }
     }
@@ -1091,6 +1097,42 @@ public class MainActivity extends AppCompatActivity {
         Bitmap image = BitmapFactory.decodeFileDescriptor(fileDescriptor);
         parcelFileDescriptor.close();
         return image;
+    }
+
+    private Bitmap getBitmapFromUriOriented(Uri uri) throws IOException {
+        Bitmap bitmap = getBitmapFromUri(uri);
+        InputStream inputStream = getContentResolver().openInputStream(uri);
+        if (inputStream == null) return bitmap;
+        ExifInterface exif = new ExifInterface(inputStream);
+        int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+        inputStream.close();
+
+        Matrix matrix = new Matrix();
+        switch (orientation) {
+            case ExifInterface.ORIENTATION_ROTATE_90:
+                matrix.postRotate(90);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_180:
+                matrix.postRotate(180);
+                break;
+            case ExifInterface.ORIENTATION_ROTATE_270:
+                matrix.postRotate(270);
+                break;
+            case ExifInterface.ORIENTATION_FLIP_HORIZONTAL:
+                matrix.postScale(-1, 1);
+                break;
+            case ExifInterface.ORIENTATION_FLIP_VERTICAL:
+                matrix.postScale(1, -1);
+                break;
+            default:
+                return bitmap;
+        }
+
+        Bitmap rotatedBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+        if (rotatedBitmap != bitmap) {
+            bitmap.recycle();
+        }
+        return rotatedBitmap;
     }
 
 }
