@@ -54,7 +54,9 @@ for (i in 0 until INPUT_SIZE) {
 
         interpreter?.runForMultipleInputsOutputs(inputArray, outputMap)
 
-        return embeddings[0]
+        val result = embeddings[0]
+        android.util.Log.d("FaceEmbed", "Embedding stats: first5=${result.take(5).toList()}, last5=${result.takeLast(5).toList()}, norm=${kotlin.math.sqrt(result.fold(0f) { a, v -> a + v * v })}")
+        return result
     }
 
     fun close() {
