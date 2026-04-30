@@ -93,18 +93,23 @@ This is an **Android application** that performs **real-time face recognition** 
 ### `ml/` — ML Logic
 - **`FaceEmbeddingExtractor`**: Loads `mobile_face_net.tflite`, normalizes pixels (mean=128, std=128), runs inference, returns `FloatArray` (192-d).
 - **`FacePreprocessor`**: Pure utility functions — `cropFace()`, `rotateBitmap()`, `scaleToInputSize()`, `yuvToBitmap()`. Handles bitmap recycling internally.
-- **`FaceVerifier`**: Computes Euclidean distance between embeddings. `findNearest()` returns best match, `findNearestTwo()` returns top-2.
-- **`FaceDetectionAnalyzer`**: Implements `ImageAnalysis.Analyzer`. Uses ML Kit to detect faces, preprocesses them, extracts embeddings, emits `AnalysisResult` via callback.
+- **`FaceVerifier`**: Computes cosine similarity between embeddings. `findNearest()` returns best match. `cosineSimilarity()` is also used directly for 1:1 verification.
+- **`FaceDetectionAnalyzer`**: Implements `ImageAnalysis.Analyzer`. Uses ML Kit to detect faces, preprocesses them, extracts embeddings, emits `AnalysisResult` via callback. `AnalysisResult` includes per-step timing: `detectionTimeMs`, `preprocessingTimeMs`, `embeddingTimeMs`.
 
 ### `viewmodel/` — ViewModels
-- **`MainViewModel`**: Manages `MainUiState` (mode, recognized name, distance, face preview, registered faces, developer mode, threshold, camera lens). Handles face detection results, add/delete/clear faces, camera switching, threshold updates.
-- **`RealtimeViewModel`**: Manages `RealtimeUiState` (matched name, distance, confidence %, inference time, FPS, DB count). Tracks FPS via frame counting.
+- **`RecognitionViewModel`**: Manages `RecognitionUiState` (matched name, distance, confidence %, per-step timing, FPS, DB count). Handles face detection results for 1:N recognition. Tracks FPS via frame counting.
+- **`VerificationViewModel`**: Manages `VerificationUiState` (phase, selected face, isMatch, distance, confidence %, per-step timing, FPS). Handles 1:1 face verification against a selected registered face.
+- **`DatabaseListViewModel`**: Manages `DatabaseUiState` (registered faces list, threshold, gallery state). Handles add/delete/clear faces from camera or gallery.
+- **`SettingsViewModel`**: Manages distance threshold and developer mode settings via DataStore.
 
 ### `ui/` — Compose UI
-- **`SplashScreen`**: Lottie animation with 2.5s delay, then navigates to Main.
-- **`MainScreen`**: Camera preview (via `AndroidView` wrapping CameraX `PreviewView`), face preview card, control buttons, actions dialog, add/delete/hyperparameter dialogs.
-- **`RealtimeScreen`**: Full-screen camera with overlaid metrics panel (matched name, distance, confidence, inference time, FPS, DB count).
+- **`SplashScreen`**: Lottie animation with 2.5s delay, then navigates to Menu.
+- **`MenuScreen`**: Main menu with 3 navigation buttons (Database List, Face Recognition, Face Verification) and a Settings button.
+- **`RecognitionScreen`**: Full-screen camera with overlaid metrics panel (matched name, confidence, per-step timing, FPS, DB count) for 1:N face recognition.
+- **`VerificationScreen`**: Two-phase screen — SELECT phase lists registered faces for user to pick; VERIFYING phase shows full-screen camera with metrics (MATCH/NO MATCH, confidence, per-step timing, FPS).
+- **`DatabaseListScreen`**: Lists registered faces with delete buttons. Camera and gallery buttons for adding new faces.
 - **`CameraPreview`**: Reusable composable that binds CameraX preview + ImageAnalysis to lifecycle.
+- **`MetricsPanel`**: Bottom panel showing matched name (green for match, red for no match), confidence %, per-step timing (detection, preprocessing, embedding, similarity), FPS, and DB face count.
 
 ### `App.kt` — Application Class
 - `@HiltAndroidApp`. Initializes TFLite model on startup. Runs one-time SharedPreferences → Room migration on `Dispatchers.IO`.
