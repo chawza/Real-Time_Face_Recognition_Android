@@ -1,7 +1,6 @@
 package com.atharvakale.facerecognition.ml
 
 import com.atharvakale.facerecognition.data.db.FaceEmbeddingEntity
-import android.util.Pair
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.sqrt
@@ -11,41 +10,31 @@ class FaceVerifier @Inject constructor() {
 
     data class MatchResult(
         val name: String,
-        val distance: Float
+        val similarity: Float
     )
 
     fun findNearest(embedding: FloatArray, registered: List<FaceEmbeddingEntity>): MatchResult? {
         var best: MatchResult? = null
         for (face in registered) {
-            val dist = euclideanDistance(embedding, face.embedding.toFloatArray())
-            if (best == null || dist < best.distance) {
-                best = MatchResult(face.name, dist)
+            val sim = cosineSimilarity(embedding, face.embedding.toFloatArray())
+            if (best == null || sim > best.similarity) {
+                best = MatchResult(face.name, sim)
             }
         }
         return best
     }
 
-    fun findNearestTwo(embedding: FloatArray, registered: List<FaceEmbeddingEntity>): List<MatchResult?> {
-        var first: MatchResult? = null
-        var second: MatchResult? = null
-        for (face in registered) {
-            val dist = euclideanDistance(embedding, face.embedding.toFloatArray())
-            if (first == null || dist < first.distance) {
-                second = first
-                first = MatchResult(face.name, dist)
-            } else if (second == null || dist < second.distance) {
-                second = MatchResult(face.name, dist)
-            }
-        }
-        return listOf(first, second ?: first)
-    }
-
-    fun euclideanDistance(a: FloatArray, b: FloatArray): Float {
-        var sum = 0f
+    fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
+        var dot = 0f
+        var normA = 0f
+        var normB = 0f
         for (i in a.indices) {
-            val diff = a[i] - b[i]
-            sum += diff * diff
+            dot += a[i] * b[i]
+            normA += a[i] * a[i]
+            normB += b[i] * b[i]
         }
-        return sqrt(sum)
+        val denominator = sqrt(normA) * sqrt(normB)
+        if (denominator < 1e-10f) return 0f
+        return (dot / denominator).coerceIn(-1f, 1f)
     }
 }
