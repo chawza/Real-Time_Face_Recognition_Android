@@ -98,10 +98,9 @@ dependencies {
     implementation "androidx.camera:camera-lifecycle:${camerax_version}"
     implementation "androidx.camera:camera-view:${camerax_version}"
 
-    // TensorFlow Lite
-    implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.4'
-    implementation 'org.tensorflow:tensorflow-lite-support:0.4.4'
-    implementation 'org.tensorflow:tensorflow-lite:2.16.1'
+    // LiteRT (formerly TensorFlow Lite) — 16 KB page aligned
+    implementation 'com.google.ai.edge.litert:litert:1.4.0'
+    implementation 'com.google.ai.edge.litert:litert-api:1.4.0'
 
     // EXIF
     implementation 'androidx.exifinterface:exifinterface:1.3.7'
