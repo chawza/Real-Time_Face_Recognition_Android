@@ -91,9 +91,6 @@ dependencies {
     // GSON
     implementation 'com.google.code.gson:gson:2.11.0'
 
-    // Lottie
-    implementation "com.airbnb.android:lottie-compose:6.6.2"
-
     // CameraX
     def camerax_version = "1.4.1"
     implementation "androidx.camera:camera-core:${camerax_version}"

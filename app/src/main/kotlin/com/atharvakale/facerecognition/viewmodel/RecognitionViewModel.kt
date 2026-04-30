@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class RealtimeUiState(
+data class RecognitionUiState(
     val matchedName: String = "Initializing...",
     val distance: Float = Float.MAX_VALUE,
     val confidence: Float = 0f,
@@ -26,15 +26,15 @@ data class RealtimeUiState(
 )
 
 @HiltViewModel
-class RealtimeViewModel @Inject constructor(
+class RecognitionViewModel @Inject constructor(
     private val faceRepository: FaceRepository,
     private val settingsRepository: SettingsRepository,
     private val faceVerifier: FaceVerifier,
     val faceDetectionAnalyzer: FaceDetectionAnalyzer
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(RealtimeUiState())
-    val uiState: StateFlow<RealtimeUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(RecognitionUiState())
+    val uiState: StateFlow<RecognitionUiState> = _uiState.asStateFlow()
 
     private var frameCount = 0
     private var fpsUpdateTime = System.currentTimeMillis()
@@ -84,7 +84,8 @@ class RealtimeViewModel @Inject constructor(
                     confidence = confidence,
                     inferenceTimeMs = inferenceTimeMs,
                     fps = currentFps,
-                    statusText = "Face detected"
+                    statusText = "Face detected",
+                    dbFaceCount = registered.size
                 )
             }
         }

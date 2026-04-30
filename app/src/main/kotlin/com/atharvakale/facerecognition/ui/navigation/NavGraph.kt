@@ -5,14 +5,16 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.atharvakale.facerecognition.ui.screens.MainScreen
-import com.atharvakale.facerecognition.ui.screens.RealtimeScreen
-import com.atharvakale.facerecognition.ui.screens.SplashScreen
+import com.atharvakale.facerecognition.ui.screens.DatabaseListScreen
+import com.atharvakale.facerecognition.ui.screens.MenuScreen
+import com.atharvakale.facerecognition.ui.screens.RecognitionScreen
+import com.atharvakale.facerecognition.ui.screens.VerificationScreen
 
 sealed class Screen(val route: String) {
-    data object Splash : Screen("splash")
-    data object Main : Screen("main")
-    data object RealtimeMetrics : Screen("realtime")
+    data object Menu : Screen("menu")
+    data object DatabaseList : Screen("database")
+    data object Recognition : Screen("recognition")
+    data object Verification : Screen("verification")
 }
 
 @Composable
@@ -21,26 +23,35 @@ fun FaceRecognitionNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Splash.route
+        startDestination = Screen.Menu.route
     ) {
-        composable(Screen.Splash.route) {
-            SplashScreen(
-                onFinished = {
-                    navController.navigate(Screen.Main.route) {
-                        popUpTo(Screen.Splash.route) { inclusive = true }
-                    }
+        composable(Screen.Menu.route) {
+            MenuScreen(
+                onNavigateToDatabase = {
+                    navController.navigate(Screen.DatabaseList.route)
+                },
+                onNavigateToRecognition = {
+                    navController.navigate(Screen.Recognition.route)
+                },
+                onNavigateToVerification = {
+                    navController.navigate(Screen.Verification.route)
                 }
             )
         }
-        composable(Screen.Main.route) {
-            MainScreen(
-                onNavigateToRealtime = {
-                    navController.navigate(Screen.RealtimeMetrics.route)
-                }
+        composable(Screen.DatabaseList.route) {
+            DatabaseListScreen(
+                onBack = { navController.popBackStack() }
             )
         }
-        composable(Screen.RealtimeMetrics.route) {
-            RealtimeScreen()
+        composable(Screen.Recognition.route) {
+            RecognitionScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Verification.route) {
+            VerificationScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }
