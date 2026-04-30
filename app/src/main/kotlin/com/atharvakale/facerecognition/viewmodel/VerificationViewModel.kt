@@ -1,5 +1,6 @@
 package com.atharvakale.facerecognition.viewmodel
 
+import android.graphics.RectF
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.atharvakale.facerecognition.data.FaceRepository
@@ -10,12 +11,9 @@ import com.atharvakale.facerecognition.ml.FaceDetectionAnalyzer
 import com.atharvakale.facerecognition.ml.FaceVerifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,7 +28,10 @@ data class VerificationUiState(
     val confidence: Float = 0f,
     val inferenceTimeMs: Long = 0,
     val fps: Float = 0f,
-    val statusText: String = "Select a face"
+    val statusText: String = "Select a face",
+    val boundingBox: RectF? = null,
+    val imageWidth: Int = 0,
+    val imageHeight: Int = 0
 )
 
 @HiltViewModel
@@ -84,26 +85,30 @@ class VerificationViewModel @Inject constructor(
                 distance = Float.MAX_VALUE,
                 isMatch = false,
                 confidence = 0f,
-                statusText = "No face detected"
+                statusText = "No face detected",
+                boundingBox = null
             )
             return
         }
 
         viewModelScope.launch {
             val threshold = settingsRepository.distanceThreshold.first()
-            val distance = faceVerifier.euclideanDistance(
+            val similarity = faceVerifier.cosineSimilarity(
                 result.embedding,
                 selected.embedding.toFloatArray()
             )
-            val isMatch = distance < threshold
-            val confidence = (1f - distance).coerceIn(0f, 1f) * 100f
+            val isMatch = similarity >= threshold
+            val confidence = (similarity * 100f).coerceIn(0f, 100f)
             _uiState.value = _uiState.value.copy(
-                distance = distance,
+                distance = 1f - similarity,
                 isMatch = isMatch,
                 confidence = confidence,
                 inferenceTimeMs = inferenceTimeMs,
                 fps = currentFps,
-                statusText = if (isMatch) "Match!" else "No match"
+                statusText = if (isMatch) "Match!" else "No match",
+                boundingBox = result.boundingBox,
+                imageWidth = result.imageWidth,
+                imageHeight = result.imageHeight
             )
         }
     }

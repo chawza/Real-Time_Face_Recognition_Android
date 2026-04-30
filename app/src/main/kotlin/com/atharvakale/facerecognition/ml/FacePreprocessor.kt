@@ -17,18 +17,32 @@ import kotlin.math.abs
 object FacePreprocessor {
 
     fun cropFace(source: Bitmap, boundingBox: RectF): Bitmap {
-        val width = boundingBox.width().toInt().coerceAtLeast(1)
-        val height = boundingBox.height().toInt().coerceAtLeast(1)
+        val expanded = expandBoundingBox(boundingBox, source.width, source.height)
+        val width = expanded.width().toInt().coerceAtLeast(1)
+        val height = expanded.height().toInt().coerceAtLeast(1)
         val resultBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(resultBitmap)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG)
         paint.color = Color.WHITE
         canvas.drawRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), paint)
         val matrix = Matrix()
-        matrix.postTranslate(-boundingBox.left, -boundingBox.top)
+        matrix.postTranslate(-expanded.left, -expanded.top)
         canvas.drawBitmap(source, matrix, paint)
         if (!source.isRecycled) source.recycle()
         return resultBitmap
+    }
+
+    fun expandBoundingBox(box: RectF, imageWidth: Int, imageHeight: Int, margin: Float = 0.3f): RectF {
+        val width = box.width()
+        val height = box.height()
+        val dx = width * margin / 2f
+        val dy = height * margin / 2f
+        return RectF(
+            (box.left - dx).coerceAtLeast(0f),
+            (box.top - dy).coerceAtLeast(0f),
+            (box.right + dx).coerceAtMost(imageWidth.toFloat()),
+            (box.bottom + dy).coerceAtMost(imageHeight.toFloat())
+        )
     }
 
     fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int, flipX: Boolean, flipY: Boolean): Bitmap {
@@ -59,7 +73,7 @@ object FacePreprocessor {
         val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
         val out = ByteArrayOutputStream()
         yuvImage.compressToJpeg(
-            Rect(0, 0, yuvImage.width, yuvImage.height), 75, out
+            Rect(0, 0, yuvImage.width, yuvImage.height), 100, out
         )
         val imageBytes = out.toByteArray()
         return android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)

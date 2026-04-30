@@ -6,23 +6,21 @@ import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.Face
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceDetectorOptions
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.callbackFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
 data class AnalysisResult(
     val faceBitmap: Bitmap,
     val embedding: FloatArray,
-    val boundingBox: RectF
+    val boundingBox: RectF,
+    val imageWidth: Int,
+    val imageHeight: Int
 ) {
     override fun equals(other: Any?): Boolean = false
     override fun hashCode(): Int = embedding.contentHashCode()
@@ -40,6 +38,7 @@ class FaceDetectionAnalyzer @Inject constructor(
     init {
         val options = FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
             .build()
         detector = FaceDetection.getClient(options)
     }
@@ -63,15 +62,18 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val frameBmp = FacePreprocessor.yuvToBitmap(mediaImage)
                     val rotatedBmp = FacePreprocessor.rotateBitmap(frameBmp, rotation, false, false)
                     val boundingBox = RectF(face.boundingBox)
-                    val croppedFace = FacePreprocessor.cropFace(rotatedBmp, boundingBox)
+                    val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, rotatedBmp.width, rotatedBmp.height)
+                    val croppedFace = FacePreprocessor.cropFace(rotatedBmp, expandedBox)
                     val finalFace = if (flipX) {
                         FacePreprocessor.rotateBitmap(croppedFace, 0, true, false)
                     } else {
                         croppedFace
                     }
+                    val rotatedWidth = if (rotation == 90 || rotation == 270) mediaImage.height else mediaImage.width
+                    val rotatedHeight = if (rotation == 90 || rotation == 270) mediaImage.width else mediaImage.height
                     val scaled = FacePreprocessor.scaleToInputSize(finalFace)
                     val embedding = embeddingExtractor.getEmbedding(scaled)
-                    val result = AnalysisResult(scaled, embedding, boundingBox)
+                    val result = AnalysisResult(scaled, embedding, boundingBox, rotatedWidth, rotatedHeight)
                     _latestResult.value = result
                     onResult(result)
                 } else {

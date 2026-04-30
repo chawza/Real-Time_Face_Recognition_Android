@@ -1,5 +1,6 @@
 package com.atharvakale.facerecognition.viewmodel
 
+import android.graphics.RectF
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.atharvakale.facerecognition.data.FaceRepository
@@ -22,7 +23,10 @@ data class RecognitionUiState(
     val inferenceTimeMs: Long = 0,
     val fps: Float = 0f,
     val dbFaceCount: Int = 0,
-    val statusText: String = "Initializing..."
+    val statusText: String = "Initializing...",
+    val boundingBox: RectF? = null,
+    val imageWidth: Int = 0,
+    val imageHeight: Int = 0
 )
 
 @HiltViewModel
@@ -54,8 +58,8 @@ class RecognitionViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 matchedName = "No Face Detected",
                 statusText = "Scanning...",
-                distance = Float.MAX_VALUE,
-                confidence = 0f
+                confidence = 0f,
+                boundingBox = null
             )
             return
         }
@@ -76,16 +80,19 @@ class RecognitionViewModel @Inject constructor(
 
             val nearest = faceVerifier.findNearest(result.embedding, registered)
             if (nearest != null) {
-                val name = if (nearest.distance < threshold) nearest.name else "Unknown"
-                val confidence = (1f - nearest.distance).coerceIn(0f, 1f) * 100f
+                val name = if (nearest.similarity >= threshold) nearest.name else "Unknown"
+                val confidence = (nearest.similarity * 100f).coerceIn(0f, 100f)
                 _uiState.value = _uiState.value.copy(
                     matchedName = name,
-                    distance = nearest.distance,
+                    distance = 1f - nearest.similarity,
                     confidence = confidence,
                     inferenceTimeMs = inferenceTimeMs,
                     fps = currentFps,
                     statusText = "Face detected",
-                    dbFaceCount = registered.size
+                    dbFaceCount = registered.size,
+                    boundingBox = result.boundingBox,
+                    imageWidth = result.imageWidth,
+                    imageHeight = result.imageHeight
                 )
             }
         }

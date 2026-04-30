@@ -24,12 +24,17 @@ fun HyperparameterDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Euclidean Distance Threshold") },
+        title = { Text("Similarity Threshold") },
         text = {
             Column {
-                Text("0.00 -> Perfect Match")
-                Text("1.00 -> Default")
-                Text("\nCurrent Value:")
+                Text("Minimum similarity to consider a face match (0.0 - 1.0):")
+                Text("")
+                Text("Higher = stricter matching")
+                Text("  0.8+: Very strict")
+                Text("  0.3: Balanced (default)")
+                Text("  0.1: Lenient (more false matches)")
+                Text("")
+                Text("Threshold Value:")
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },

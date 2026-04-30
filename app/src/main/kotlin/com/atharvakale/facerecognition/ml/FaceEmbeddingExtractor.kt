@@ -39,14 +39,14 @@ class FaceEmbeddingExtractor @Inject constructor() {
         bitmap.getPixels(intValues, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         imgData.rewind()
 
-        for (i in 0 until INPUT_SIZE) {
-            for (j in 0 until INPUT_SIZE) {
-                val pixelValue = intValues[i * INPUT_SIZE + j]
-                imgData.putFloat((((pixelValue shr 16) and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
-                imgData.putFloat((((pixelValue shr 8) and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
-                imgData.putFloat(((pixelValue and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
+for (i in 0 until INPUT_SIZE) {
+                for (j in 0 until INPUT_SIZE) {
+                    val pixelValue = intValues[i * INPUT_SIZE + j]
+                    imgData.putFloat(((pixelValue and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
+                    imgData.putFloat((((pixelValue shr 8) and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
+                    imgData.putFloat((((pixelValue shr 16) and 0xFF) - IMAGE_MEAN) / IMAGE_STD)
+                }
             }
-        }
 
         val inputArray = arrayOf(imgData)
         val embeddings = arrayOf(FloatArray(OUTPUT_SIZE))

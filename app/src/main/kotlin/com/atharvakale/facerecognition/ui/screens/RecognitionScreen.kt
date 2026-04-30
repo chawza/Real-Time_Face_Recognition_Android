@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.atharvakale.facerecognition.ui.components.CameraPreview
+import com.atharvakale.facerecognition.ui.components.FaceBoundingBoxOverlay
 import com.atharvakale.facerecognition.ui.components.MetricsPanel
 import com.atharvakale.facerecognition.viewmodel.RecognitionViewModel
 
@@ -69,6 +70,14 @@ fun RecognitionScreen(
                 flipX = lensFacing == CameraSelector.LENS_FACING_FRONT,
                 analyzer = viewModel.faceDetectionAnalyzer,
                 onResult = { result -> viewModel.onFaceAnalyzed(result, 0) },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            FaceBoundingBoxOverlay(
+                boundingBox = uiState.boundingBox,
+                imageWidth = uiState.imageWidth,
+                imageHeight = uiState.imageHeight,
+                flipX = lensFacing == CameraSelector.LENS_FACING_FRONT,
                 modifier = Modifier.fillMaxSize()
             )
         }

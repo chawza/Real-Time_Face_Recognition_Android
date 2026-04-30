@@ -72,11 +72,6 @@ fun MetricsPanel(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Distance: ${"%.3f".format(distance)}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Teal200
-                )
-                Text(
                     text = "Confidence: ${"%.1f".format(confidence)}%",
                     style = MaterialTheme.typography.bodyLarge,
                     color = Teal200

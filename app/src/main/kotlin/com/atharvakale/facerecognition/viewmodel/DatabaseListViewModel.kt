@@ -30,7 +30,7 @@ import javax.inject.Inject
 
 data class DatabaseUiState(
     val faces: List<FaceEmbeddingEntity> = emptyList(),
-    val distanceThreshold: Float = 1.0f,
+    val distanceThreshold: Float = 0.3f,
     val galleryReady: Boolean = false,
     val galleryError: String? = null
 )
@@ -84,7 +84,8 @@ class DatabaseListViewModel @Inject constructor(
 
                     val face = faces[0]
                     val boundingBox = RectF(face.boundingBox)
-                    val cropped = FacePreprocessor.cropFace(bitmap, boundingBox)
+                    val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, bitmap.width, bitmap.height)
+                    val cropped = FacePreprocessor.cropFace(bitmap, expandedBox)
                     val scaled = FacePreprocessor.scaleToInputSize(cropped)
                     embeddingExtractor.getEmbedding(scaled)
                 }
