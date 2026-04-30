@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.atharvakale.facerecognition.data.FaceRepository
 import com.atharvakale.facerecognition.data.datastore.SettingsRepository
 import com.atharvakale.facerecognition.ml.AnalysisResult
+import com.atharvakale.facerecognition.ml.FaceDetectionAnalyzer
 import com.atharvakale.facerecognition.ml.FaceVerifier
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +29,8 @@ data class RealtimeUiState(
 class RealtimeViewModel @Inject constructor(
     private val faceRepository: FaceRepository,
     private val settingsRepository: SettingsRepository,
-    private val faceVerifier: FaceVerifier
+    private val faceVerifier: FaceVerifier,
+    val faceDetectionAnalyzer: FaceDetectionAnalyzer
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RealtimeUiState())

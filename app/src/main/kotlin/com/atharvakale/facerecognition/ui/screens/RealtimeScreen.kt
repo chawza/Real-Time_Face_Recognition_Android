@@ -56,7 +56,11 @@ fun RealtimeScreen(
         if (hasCameraPermission) {
             CameraPreview(
                 lensFacing = CameraSelector.LENS_FACING_FRONT,
-                onAnalysisReady = { },
+                flipX = true,
+                analyzer = viewModel.faceDetectionAnalyzer,
+                onResult = { result ->
+                    viewModel.onFaceAnalyzed(result, 0)
+                },
                 modifier = Modifier.fillMaxSize()
             )
         }

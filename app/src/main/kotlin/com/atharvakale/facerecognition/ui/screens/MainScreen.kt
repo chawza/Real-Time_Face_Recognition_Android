@@ -4,8 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageProxy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,13 +38,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.atharvakale.facerecognition.ml.FaceDetectionAnalyzer
 import com.atharvakale.facerecognition.ui.components.ActionsDialog
 import com.atharvakale.facerecognition.ui.components.AddFaceDialog
 import com.atharvakale.facerecognition.ui.components.CameraPreview
 import com.atharvakale.facerecognition.ui.components.DeleteFacesDialog
 import com.atharvakale.facerecognition.ui.components.FaceListDialog
-import com.atharvakale.facerecognition.ui.components.FacePreviewCard
 import com.atharvakale.facerecognition.ui.components.HyperparameterDialog
 import com.atharvakale.facerecognition.viewmodel.MainViewModel
 import com.atharvakale.facerecognition.viewmodel.ScreenMode
@@ -78,13 +74,23 @@ fun MainScreen(
         hasCameraPermission = granted
     }
 
+    val galleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.processGalleryImage(it) }
+    }
+
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
-    val analyzer = remember { mutableStateOf<FaceDetectionAnalyzer?>(null) }
+    LaunchedEffect(uiState.galleryReady) {
+        if (uiState.galleryReady) {
+            showAddFaceDialog = true
+        }
+    }
 
     Scaffold { padding ->
         Column(
@@ -101,8 +107,9 @@ fun MainScreen(
                 ) {
                     CameraPreview(
                         lensFacing = uiState.cameraLensFacing,
-                        onAnalysisReady = { imageAnalyzer ->
-                        },
+                        flipX = uiState.flipX,
+                        analyzer = viewModel.faceDetectionAnalyzer,
+                        onResult = { viewModel.onFaceDetected(it) },
                         modifier = Modifier.fillMaxSize()
                     )
 
@@ -146,20 +153,13 @@ fun MainScreen(
                         Icon(Icons.Default.Add, contentDescription = "Add face")
                     }
                     Spacer(modifier = Modifier.width(4.dp))
-                    IconButton(onClick = { /* gallery */ }) {
+                    IconButton(onClick = {
+                        galleryLauncher.launch("image/*")
+                    }) {
                         Icon(Icons.Default.Collections, contentDescription = "Gallery")
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            FacePreviewCard(
-                bitmap = uiState.facePreview,
-                name = uiState.recognizedName,
-                mode = uiState.mode,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -179,7 +179,7 @@ fun MainScreen(
                     2 -> viewModel.saveFaces()
                     3 -> viewModel.loadFaces()
                     4 -> viewModel.clearAll()
-                    5 -> { /* gallery import */ }
+                    5 -> galleryLauncher.launch("image/*")
                     6 -> showHyperparameterDialog = true
                     7 -> viewModel.toggleDeveloperMode(!uiState.developerMode)
                     8 -> onNavigateToRealtime()
@@ -195,7 +195,12 @@ fun MainScreen(
                 viewModel.addFace(name)
                 showAddFaceDialog = false
             },
-            onDismiss = { showAddFaceDialog = false }
+            onDismiss = {
+                showAddFaceDialog = false
+                if (uiState.galleryReady) {
+                    viewModel.setMode(ScreenMode.RECOGNIZE)
+                }
+            }
         )
     }
 

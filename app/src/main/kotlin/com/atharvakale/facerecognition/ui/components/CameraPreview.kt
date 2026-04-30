@@ -14,12 +14,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.atharvakale.facerecognition.ml.FaceDetectionAnalyzer
 import java.util.concurrent.Executors
 
 @Composable
 fun CameraPreview(
     lensFacing: Int,
-    onAnalysisReady: (ImageAnalysis.Analyzer) -> Unit,
+    flipX: Boolean,
+    analyzer: FaceDetectionAnalyzer,
+    onResult: (com.atharvakale.facerecognition.ml.AnalysisResult?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -58,14 +61,9 @@ fun CameraPreview(
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 
-                val analyzer = object : ImageAnalysis.Analyzer {
-                    override fun analyze(imageProxy: androidx.camera.core.ImageProxy) {
-                        onAnalysisReady(this)
-                        imageProxy.close()
-                    }
+                imageAnalysis.setAnalyzer(executor) { imageProxy ->
+                    analyzer.analyze(imageProxy, flipX, onResult)
                 }
-
-                imageAnalysis.setAnalyzer(executor, analyzer)
 
                 try {
                     cameraProvider.unbindAll()
