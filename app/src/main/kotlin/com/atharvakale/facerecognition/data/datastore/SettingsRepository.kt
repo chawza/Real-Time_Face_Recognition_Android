@@ -25,7 +25,7 @@ class SettingsRepository @Inject constructor(
     }
 
     val distanceThreshold: Flow<Float> = context.dataStore.data.map { prefs ->
-        prefs[DISTANCE_THRESHOLD] ?: 0.3f
+        prefs[DISTANCE_THRESHOLD] ?: 0.5f
     }
 
     val developerMode: Flow<Boolean> = context.dataStore.data.map { prefs ->

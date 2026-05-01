@@ -1,6 +1,6 @@
 package com.atharvakale.facerecognition.ml
 
-import com.atharvakale.facerecognition.data.db.FaceEmbeddingEntity
+import com.atharvakale.facerecognition.data.model.RegisteredFace
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.sqrt
@@ -13,7 +13,7 @@ class FaceVerifier @Inject constructor() {
         val similarity: Float
     )
 
-    fun findNearest(embedding: FloatArray, registered: List<FaceEmbeddingEntity>): MatchResult? {
+    fun findNearest(embedding: FloatArray, registered: List<RegisteredFace>): MatchResult? {
         var best: MatchResult? = null
         for (face in registered) {
             val sim = cosineSimilarity(embedding, face.embedding.toFloatArray())

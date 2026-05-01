@@ -4,8 +4,8 @@ import android.graphics.RectF
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.atharvakale.facerecognition.data.FaceRepository
+import com.atharvakale.facerecognition.data.model.RegisteredFace
 import com.atharvakale.facerecognition.data.datastore.SettingsRepository
-import com.atharvakale.facerecognition.data.db.FaceEmbeddingEntity
 import com.atharvakale.facerecognition.ml.AnalysisResult
 import com.atharvakale.facerecognition.ml.FaceDetectionAnalyzer
 import com.atharvakale.facerecognition.ml.FaceVerifier
@@ -21,8 +21,8 @@ enum class VerificationPhase { SELECT, VERIFYING }
 
 data class VerificationUiState(
     val phase: VerificationPhase = VerificationPhase.SELECT,
-    val registeredFaces: List<FaceEmbeddingEntity> = emptyList(),
-    val selectedFace: FaceEmbeddingEntity? = null,
+    val registeredFaces: List<RegisteredFace> = emptyList(),
+    val selectedFace: RegisteredFace? = null,
     val distance: Float = Float.MAX_VALUE,
     val isMatch: Boolean = false,
     val confidence: Float = 0f,
@@ -60,7 +60,7 @@ class VerificationViewModel @Inject constructor(
         }
     }
 
-    fun selectFace(face: FaceEmbeddingEntity) {
+    fun selectFace(face: RegisteredFace) {
         _uiState.value = _uiState.value.copy(
             selectedFace = face,
             phase = VerificationPhase.VERIFYING,

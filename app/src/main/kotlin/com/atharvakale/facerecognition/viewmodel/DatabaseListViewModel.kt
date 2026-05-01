@@ -7,7 +7,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.atharvakale.facerecognition.data.FaceRepository
-import com.atharvakale.facerecognition.data.db.FaceEmbeddingEntity
+import com.atharvakale.facerecognition.data.model.RegisteredFace
 import com.atharvakale.facerecognition.data.datastore.SettingsRepository
 import com.atharvakale.facerecognition.ml.FaceDetectionAnalyzer
 import com.atharvakale.facerecognition.ml.FaceEmbeddingExtractor
@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 data class DatabaseUiState(
-    val faces: List<FaceEmbeddingEntity> = emptyList(),
+    val faces: List<RegisteredFace> = emptyList(),
     val distanceThreshold: Float = 0.3f,
     val galleryReady: Boolean = false,
     val galleryError: String? = null

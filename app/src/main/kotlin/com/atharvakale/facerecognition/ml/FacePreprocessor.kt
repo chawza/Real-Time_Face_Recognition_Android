@@ -16,16 +16,15 @@ object FacePreprocessor {
     private const val IMAGE_STD = 128.0f
 
     fun cropFace(source: Bitmap, boundingBox: RectF): Bitmap {
-        val expanded = expandBoundingBox(boundingBox, source.width, source.height)
-        val width = expanded.width().toInt().coerceAtLeast(1)
-        val height = expanded.height().toInt().coerceAtLeast(1)
+        val width = boundingBox.width().toInt().coerceAtLeast(1)
+        val height = boundingBox.height().toInt().coerceAtLeast(1)
         val resultBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(resultBitmap)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG)
         paint.color = Color.WHITE
         canvas.drawRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), paint)
         val matrix = Matrix()
-        matrix.postTranslate(-expanded.left, -expanded.top)
+        matrix.postTranslate(-boundingBox.left, -boundingBox.top)
         canvas.drawBitmap(source, matrix, paint)
         if (!source.isRecycled) source.recycle()
         return resultBitmap

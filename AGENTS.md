@@ -26,8 +26,7 @@ This is an **Android application** that performs **real-time face recognition** 
 | Face Detection | ML Kit Face Detection (com.google.mlkit:face-detection) |
 | Inference | TensorFlow Lite (tflite, tflite-support, tflite-task-vision) |
 | Model | MobileFaceNet (`mobile_face_net.tflite`) — 112×112 input, 192-d embedding output |
-| Persistence | Room (face embeddings), DataStore Preferences (settings) |
-| Serialization | Gson (Room TypeConverter) |
+| Persistence | Local binary files (`filesDir/face_embeddings/`), DataStore Preferences (settings) |
 | DI | Hilt (Dagger) |
 | Async | Kotlin Coroutines + Flow |
 | Navigation | Navigation Compose |
@@ -47,14 +46,12 @@ This is an **Android application** that performs **real-time face recognition** 
 │       │   ├── App.kt                    # @HiltAndroidApp Application class
 │       │   ├── MainActivity.kt           # Single Activity, setContent with Compose
 │       │   ├── data/
-│       │   │   ├── db/
-│       │   │   │   ├── AppDatabase.kt    # Room database
-│       │   │   │   ├── FaceEmbeddingDao.kt
-│       │   │   │   ├── FaceEmbeddingEntity.kt
-│       │   │   │   └── FaceEmbeddingTypeConverter.kt
+│       │   │   ├── model/
+│       │   │   │   └── RegisteredFace.kt       # Domain model: name + 192-d embedding
 │       │   │   ├── datastore/
-│       │   │   │   └── SettingsRepository.kt  # DataStore (threshold, dev mode)
-│       │   │   └── FaceRepository.kt     # Room DAO wrapper + SP migration
+│       │   │   │   └── SettingsRepository.kt   # DataStore (threshold, dev mode)
+│       │   │   ├── FaceEmbeddingStorage.kt     # File-based read/write for embeddings
+│       │   │   └── FaceRepository.kt           # Storage wrapper
 │       │   ├── ml/
 │       │   │   ├── FaceEmbeddingExtractor.kt  # TFLite interpreter wrapper
 │       │   │   ├── FacePreprocessor.kt         # Bitmap crop/rotate/scale/YUV utils
@@ -69,7 +66,6 @@ This is an **Android application** that performs **real-time face recognition** 
 │       │   │   ├── MainViewModel.kt
 │       │   │   └── RealtimeViewModel.kt
 │       │   └── di/
-│       │       ├── DatabaseModule.kt
 │       │       ├── DataStoreModule.kt
 │       │       └── InferenceModule.kt
 │       └── res/
@@ -85,9 +81,9 @@ This is an **Android application** that performs **real-time face recognition** 
 ## Key Source Files
 
 ### `data/` — Data Layer
-- **`FaceEmbeddingEntity`**: Room entity with `name` (PK) and `embedding: List<Float>` (192-d).
-- **`FaceEmbeddingDao`**: DAO with Flow-based `getAll()`, plus suspend `insert`, `delete`, `deleteAll`.
-- **`FaceRepository`**: Wraps DAO, exposes `Flow<List<FaceEmbeddingEntity>>`. Contains `migrateFromSharedPrefs()` for one-time data migration from legacy SharedPreferences format.
+- **`RegisteredFace`**: Domain model with `name` and `embedding: List<Float>` (192-d).
+- **`FaceEmbeddingStorage`**: Reads/writes lossless binary embedding files to `filesDir/face_embeddings/`. Each file is named by a sanitized label and stores the original name plus raw float bytes. Exposes `Flow<List<RegisteredFace>>` via a refresh trigger.
+- **`FaceRepository`**: Wraps `FaceEmbeddingStorage`, exposes `Flow<List<RegisteredFace>>`.
 - **`SettingsRepository`**: Wraps DataStore, exposes `distanceThreshold: Flow<Float>` and `developerMode: Flow<Boolean>`.
 
 ### `ml/` — ML Logic
@@ -112,7 +108,7 @@ This is an **Android application** that performs **real-time face recognition** 
 - **`MetricsPanel`**: Bottom panel showing matched name (green for match, red for no match), confidence %, per-step timing (detection, preprocessing, embedding, similarity), FPS, and DB face count.
 
 ### `App.kt` — Application Class
-- `@HiltAndroidApp`. Initializes TFLite model on startup. Runs one-time SharedPreferences → Room migration on `Dispatchers.IO`.
+- `@HiltAndroidApp`. Initializes TFLite model on startup.
 
 ### `MainActivity.kt`
 - Single `@AndroidEntryPoint` Activity. Calls `setContent` with Compose theme + navigation graph.
@@ -149,7 +145,7 @@ APK output path: `app/build/outputs/apk/debug/app-debug.apk`
 - **Camera selector constants**: Use `CameraSelector.LENS_FACING_BACK` and `CameraSelector.LENS_FACING_FRONT` (not deprecated `android.hardware.Camera.CameraInfo` constants).
 - **ImageProxy lifecycle**: `imageProxy.close()` is called in `onComplete` of the ML Kit task inside `FaceDetectionAnalyzer`. This is critical; omitting it will freeze the camera feed.
 - **Bitmap recycling**: `FacePreprocessor` methods (`cropFace`, `rotateBitmap`, `scaleToInputSize`) recycle the source Bitmap after creating a new one. Ensure any changes preserve this to avoid memory leaks.
-- **Data migration**: On first launch after upgrade, `FaceRecognitionApp` migrates face embeddings from legacy SharedPreferences (JSON format with `Double` arrays) to Room. The migration flag is stored in SharedPreferences key `room_migrated`.
+- **Persistence**: Face embeddings are stored as lossless binary files in `filesDir/face_embeddings/`. Each file contains the original label (UTF-8 length-prefixed) followed by raw `float` bytes. This makes dump/reload fully lossless without Gson or Room.
 - **State management**: UI state is exposed via `StateFlow<UiState>` from ViewModels. Collected in Compose via `collectAsState()`.
 - **Threading**: ML Kit analysis runs on a single-thread executor (via CameraX `ImageAnalysis.setAnalyzer()`). ViewModel operations use `viewModelScope.launch` with Coroutines.
 - **Front camera handling**: `flipX = true` when using `CameraSelector.LENS_FACING_FRONT` so the preview/mirror behavior is consistent.
@@ -160,8 +156,7 @@ APK output path: `app/build/outputs/apk/debug/app-debug.apk`
 1. **Do not compress `.tflite` in `build.gradle`**: The `noCompress` rule is required.
 2. **Do not change `INPUT_SIZE` (112) or `OUTPUT_SIZE` (192)** unless you also replace the model with one that has matching tensor shapes.
 3. **Do not remove `imageProxy.close()`** in the ML Kit completion listener (`FaceDetectionAnalyzer`).
-4. **Room migration**: If changing the Room schema (e.g. adding columns), add a migration or use `fallbackToDestructiveMigration()`. Do not change `version = 1` without a migration strategy.
-5. **DataStore vs SharedPreferences**: Settings now use DataStore, not SharedPreferences. The only remaining SharedPreferences usage is the one-time migration flag (`room_migrated`).
+4. **DataStore vs SharedPreferences**: Settings use DataStore. No SharedPreferences remain in the codebase.
 6. **Compose recomposition**: Bitmap state in `MainUiState.facePreview` triggers recomposition. For performance-sensitive paths, consider `remember` with keys.
 
 ## Dependencies (Key Versions)
@@ -175,9 +170,7 @@ APK output path: `app/build/outputs/apk/debug/app-debug.apk`
 - CameraX: `1.4.1`
 - ML Kit Face Detection: `16.1.7`
 - TensorFlow Lite: `2.16.1`
-- Room: `2.6.1`
 - DataStore: `1.1.1`
-- Gson: `2.11.0`
 - Lottie Compose: `6.6.2`
 - Coroutines: `1.9.0`
 - Navigation Compose: `2.8.5`
