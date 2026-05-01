@@ -18,6 +18,7 @@ object InferenceModule {
     fun provideFaceDetector(): FaceDetector {
         val options = FaceDetectorOptions.Builder()
             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
             .build()
         return FaceDetection.getClient(options)
     }
