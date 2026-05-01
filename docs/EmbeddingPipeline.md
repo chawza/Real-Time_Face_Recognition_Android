@@ -24,4 +24,4 @@ normalized = (pixel - 127.5) / 128.0
 - L2 Normalization
 
 ## Vector
-- 1 x 128 vector data
+- 1 x 192 vector data

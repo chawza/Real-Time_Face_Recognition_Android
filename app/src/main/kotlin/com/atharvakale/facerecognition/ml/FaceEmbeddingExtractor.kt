@@ -12,6 +12,7 @@ import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.sqrt
 
 @Singleton
 class FaceEmbeddingExtractor @Inject constructor() {
@@ -20,7 +21,7 @@ class FaceEmbeddingExtractor @Inject constructor() {
         private const val MODEL_FILE = "mobile_face_net.tflite"
         private const val INPUT_SIZE = 112
         private const val OUTPUT_SIZE = 192
-        private const val IMAGE_MEAN = 128.0f
+        private const val IMAGE_MEAN = 127.5f
         private const val IMAGE_STD = 128.0f
     }
 
@@ -55,13 +56,20 @@ for (i in 0 until INPUT_SIZE) {
         interpreter?.runForMultipleInputsOutputs(inputArray, outputMap)
 
         val result = embeddings[0]
-        android.util.Log.d("FaceEmbed", "Embedding stats: first5=${result.take(5).toList()}, last5=${result.takeLast(5).toList()}, norm=${kotlin.math.sqrt(result.fold(0f) { a, v -> a + v * v })}")
-        return result
+        return l2Normalize(result)
     }
 
     fun close() {
         interpreter?.close()
         interpreter = null
+    }
+
+    private fun l2Normalize(vector: FloatArray): FloatArray {
+        var normSq = 0f
+        for (v in vector) normSq += v * v
+        val norm = sqrt(normSq)
+        if (norm < 1e-10f) return vector
+        return FloatArray(vector.size) { i -> vector[i] / norm }
     }
 
     @Throws(IOException::class)
