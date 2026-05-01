@@ -11,7 +11,8 @@ flowchart LR
 - Cropped RGB image (112 x 112)
 
 ## Pre Processing
-- Pixel normalization into from Integer (0 - 255) to float32
+- Channel order: R, G, B extracted from Android ARGB int pixel
+- Pixel normalization from Integer (0 - 255) to float32
 - each pixel value will be ranging -1.0 to 1.0
 ```
 normalized = (pixel - 127.5) / 128.0

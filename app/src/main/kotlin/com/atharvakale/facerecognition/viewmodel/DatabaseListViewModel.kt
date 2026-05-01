@@ -87,7 +87,8 @@ class DatabaseListViewModel @Inject constructor(
                     val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, bitmap.width, bitmap.height)
                     val cropped = FacePreprocessor.cropFace(bitmap, expandedBox)
                     val scaled = FacePreprocessor.scaleToInputSize(cropped)
-                    embeddingExtractor.getEmbedding(scaled)
+                    val inputBuffer = FacePreprocessor.toNormalizedRgbBuffer(scaled)
+                    embeddingExtractor.getEmbedding(inputBuffer)
                 }
 
                 if (embedding != null) {

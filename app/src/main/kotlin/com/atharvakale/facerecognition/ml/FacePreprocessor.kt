@@ -3,18 +3,17 @@ package com.atharvakale.facerecognition.ml
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.ImageFormat
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.Rect
 import android.graphics.RectF
-import android.graphics.YuvImage
-import android.media.Image
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import kotlin.math.abs
+import java.nio.ByteOrder
 
 object FacePreprocessor {
+
+    private const val INPUT_SIZE = 112
+    private const val IMAGE_MEAN = 127.5f
+    private const val IMAGE_STD = 128.0f
 
     fun cropFace(source: Bitmap, boundingBox: RectF): Bitmap {
         val expanded = expandBoundingBox(boundingBox, source.width, source.height)
@@ -68,55 +67,26 @@ object FacePreprocessor {
         return resizedBitmap
     }
 
-    fun yuvToBitmap(image: Image): Bitmap {
-        val nv21 = yuv420ToNv21(image)
-        val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
-        val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(
-            Rect(0, 0, yuvImage.width, yuvImage.height), 100, out
-        )
-        val imageBytes = out.toByteArray()
-        return android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-    }
+    fun toNormalizedRgbBuffer(bitmap: Bitmap): ByteBuffer {
+        val imgData = ByteBuffer.allocateDirect(1 * INPUT_SIZE * INPUT_SIZE * 3 * 4)
+        imgData.order(ByteOrder.nativeOrder())
 
-    private fun yuv420ToNv21(image: Image): ByteArray {
-        val width = image.width
-        val height = image.height
-        val ySize = width * height
-        val uvSize = width * height / 4
-        val nv21 = ByteArray(ySize + uvSize * 2)
+        val intValues = IntArray(INPUT_SIZE * INPUT_SIZE)
+        bitmap.getPixels(intValues, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
 
-        val yBuffer: ByteBuffer = image.planes[0].buffer
-        val uBuffer: ByteBuffer = image.planes[1].buffer
-        val vBuffer: ByteBuffer = image.planes[2].buffer
-
-        var rowStride = image.planes[0].rowStride
-        var pos = 0
-
-        if (rowStride == width) {
-            yBuffer.get(nv21, 0, ySize)
-            pos += ySize
-        } else {
-            var yBufferPos = -rowStride.toLong()
-            while (pos < ySize) {
-                yBufferPos += rowStride
-                yBuffer.position(yBufferPos.toInt())
-                yBuffer.get(nv21, pos, width)
-                pos += width
+        for (i in 0 until INPUT_SIZE) {
+            for (j in 0 until INPUT_SIZE) {
+                val pixelValue = intValues[i * INPUT_SIZE + j]
+                val r = (pixelValue shr 16) and 0xFF
+                val g = (pixelValue shr 8) and 0xFF
+                val b = pixelValue and 0xFF
+                imgData.putFloat((r - IMAGE_MEAN) / IMAGE_STD)
+                imgData.putFloat((g - IMAGE_MEAN) / IMAGE_STD)
+                imgData.putFloat((b - IMAGE_MEAN) / IMAGE_STD)
             }
         }
 
-        rowStride = image.planes[2].rowStride
-        val pixelStride = image.planes[2].pixelStride
-
-        for (row in 0 until height / 2) {
-            for (col in 0 until width / 2) {
-                val vuPos = col * pixelStride + row * rowStride
-                nv21[pos++] = vBuffer.get(vuPos)
-                nv21[pos++] = uBuffer.get(vuPos)
-            }
-        }
-
-        return nv21
+        imgData.rewind()
+        return imgData
     }
 }

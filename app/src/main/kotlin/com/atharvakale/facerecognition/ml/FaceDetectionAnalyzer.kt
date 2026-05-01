@@ -66,7 +66,7 @@ class FaceDetectionAnalyzer @Inject constructor(
                 if (faces.isNotEmpty()) {
                     val face = faces[0]
                     val preprocessStart = System.nanoTime()
-                    val frameBmp = FacePreprocessor.yuvToBitmap(mediaImage)
+                    val frameBmp = imageProxy.toBitmap()
                     val rotatedBmp = FacePreprocessor.rotateBitmap(frameBmp, rotation, false, false)
                     val boundingBox = RectF(face.boundingBox)
                     val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, rotatedBmp.width, rotatedBmp.height)
@@ -82,7 +82,8 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val preprocessingTimeMs = (System.nanoTime() - preprocessStart) / 1_000_000
 
                     val embeddingStart = System.nanoTime()
-                    val embedding = embeddingExtractor.getEmbedding(scaled)
+                    val inputBuffer = FacePreprocessor.toNormalizedRgbBuffer(scaled)
+                    val embedding = embeddingExtractor.getEmbedding(inputBuffer)
                     val embeddingTimeMs = (System.nanoTime() - embeddingStart) / 1_000_000
 
                     val result = AnalysisResult(
