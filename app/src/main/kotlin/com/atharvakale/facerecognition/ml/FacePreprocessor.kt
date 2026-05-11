@@ -5,15 +5,66 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PointF
 import android.graphics.RectF
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 object FacePreprocessor {
 
     private const val INPUT_SIZE = 112
     private const val IMAGE_MEAN = 127.5f
     private const val IMAGE_STD = 128.0f
+    private const val REF_LEFT_X = 38.2946f
+    private const val REF_LEFT_Y = 51.6963f
+    private const val REF_RIGHT_X = 73.5318f
+    private const val REF_RIGHT_Y = 51.5014f
+
+    fun alignFace(source: Bitmap, leftEye: PointF, rightEye: PointF): Bitmap {
+        val srcLeft: PointF
+        val srcRight: PointF
+        if (leftEye.x <= rightEye.x) {
+            srcLeft = leftEye; srcRight = rightEye
+        } else {
+            srcLeft = rightEye; srcRight = leftEye
+        }
+
+        val srcCx = (srcLeft.x + srcRight.x) / 2f
+        val srcCy = (srcLeft.y + srcRight.y) / 2f
+        val srcDx = srcRight.x - srcLeft.x
+        val srcDy = srcRight.y - srcLeft.y
+        val srcDist = sqrt(srcDx * srcDx + srcDy * srcDy)
+        val srcAngle = atan2(srcDy, srcDx)
+
+        val tgtDx = REF_RIGHT_X - REF_LEFT_X
+        val tgtDy = REF_RIGHT_Y - REF_LEFT_Y
+        val tgtDist = sqrt(tgtDx * tgtDx + tgtDy * tgtDy)
+        val tgtCx = (REF_LEFT_X + REF_RIGHT_X) / 2f
+        val tgtCy = (REF_LEFT_Y + REF_RIGHT_Y) / 2f
+        val tgtAngle = atan2(tgtDy, tgtDx)
+
+        val scale = tgtDist / srcDist
+        val rotRad = tgtAngle - srcAngle
+        val cosR = cos(rotRad) * scale
+        val sinR = sin(rotRad) * scale
+
+        val a = cosR; val b = -sinR; val c = sinR; val d = cosR
+        val tx = tgtCx - a * srcCx - b * srcCy
+        val ty = tgtCy - c * srcCx - d * srcCy
+
+        val matrix = Matrix()
+        matrix.setValues(floatArrayOf(a, b, tx, c, d, ty, 0f, 0f, 1f))
+
+        val result = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(result)
+        canvas.drawColor(Color.rgb(128, 128, 128))
+        canvas.drawBitmap(source, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
+        return result
+    }
 
     fun cropFace(source: Bitmap, boundingBox: RectF): Bitmap {
         val width = boundingBox.width().toInt().coerceAtLeast(1)

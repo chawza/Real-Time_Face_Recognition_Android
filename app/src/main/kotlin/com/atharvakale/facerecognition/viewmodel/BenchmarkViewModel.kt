@@ -13,6 +13,7 @@ import com.atharvakale.facerecognition.ml.FacePreprocessor
 import com.atharvakale.facerecognition.ml.FaceVerifier
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetector
+import com.google.mlkit.vision.face.FaceLandmark
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -212,16 +213,25 @@ class BenchmarkViewModel @Inject constructor(
         }
 
         val face = faces[0]
-        val boundingBox = FacePreprocessor.expandBoundingBox(
-            RectF(face.boundingBox),
-            bitmap.width,
-            bitmap.height
-        )
+        val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position
+        val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position
 
-        var faceBitmap = FacePreprocessor.cropFace(bitmap, boundingBox)
-        faceBitmap = FacePreprocessor.scaleToInputSize(faceBitmap)
-        val buffer = FacePreprocessor.toNormalizedRgbBuffer(faceBitmap)
-        faceBitmap.recycle()
+        val alignedBitmap: Bitmap = if (leftEye != null && rightEye != null) {
+            FacePreprocessor.alignFace(bitmap, leftEye, rightEye).also {
+                bitmap.recycle()
+            }
+        } else {
+            val boundingBox = FacePreprocessor.expandBoundingBox(
+                RectF(face.boundingBox),
+                bitmap.width,
+                bitmap.height
+            )
+            var faceBitmap = FacePreprocessor.cropFace(bitmap, boundingBox)
+            FacePreprocessor.scaleToInputSize(faceBitmap)
+        }
+
+        val buffer = FacePreprocessor.toNormalizedRgbBuffer(alignedBitmap)
+        alignedBitmap.recycle()
         return embeddingExtractor.getEmbedding(buffer)
     }
 

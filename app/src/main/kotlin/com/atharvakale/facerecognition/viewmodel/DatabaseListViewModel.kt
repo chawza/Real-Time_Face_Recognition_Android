@@ -1,6 +1,7 @@
 package com.atharvakale.facerecognition.viewmodel
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.RectF
 import android.net.Uri
@@ -14,6 +15,7 @@ import com.atharvakale.facerecognition.ml.FaceEmbeddingExtractor
 import com.atharvakale.facerecognition.ml.FacePreprocessor
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetector
+import com.google.mlkit.vision.face.FaceLandmark
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -83,11 +85,21 @@ class DatabaseListViewModel @Inject constructor(
                     }
 
                     val face = faces[0]
-                    val boundingBox = RectF(face.boundingBox)
-                    val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, bitmap.width, bitmap.height)
-                    val cropped = FacePreprocessor.cropFace(bitmap, expandedBox)
-                    val scaled = FacePreprocessor.scaleToInputSize(cropped)
+                    val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position
+                    val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position
+
+                    val scaled: Bitmap = if (leftEye != null && rightEye != null) {
+                        FacePreprocessor.alignFace(bitmap, leftEye, rightEye).also {
+                            bitmap.recycle()
+                        }
+                    } else {
+                        val boundingBox = RectF(face.boundingBox)
+                        val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, bitmap.width, bitmap.height)
+                        val cropped = FacePreprocessor.cropFace(bitmap, expandedBox)
+                        FacePreprocessor.scaleToInputSize(cropped)
+                    }
                     val inputBuffer = FacePreprocessor.toNormalizedRgbBuffer(scaled)
+                    scaled.recycle()
                     embeddingExtractor.getEmbedding(inputBuffer)
                 }
 

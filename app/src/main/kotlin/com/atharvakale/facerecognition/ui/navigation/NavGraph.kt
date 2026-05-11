@@ -5,6 +5,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.atharvakale.facerecognition.ui.screens.BenchmarkScreen
 import com.atharvakale.facerecognition.ui.screens.DatabaseListScreen
 import com.atharvakale.facerecognition.ui.screens.MenuScreen
 import com.atharvakale.facerecognition.ui.screens.RecognitionScreen
@@ -15,6 +16,7 @@ sealed class Screen(val route: String) {
     data object DatabaseList : Screen("database")
     data object Recognition : Screen("recognition")
     data object Verification : Screen("verification")
+    data object Benchmark : Screen("benchmark")
 }
 
 @Composable
@@ -35,7 +37,15 @@ fun FaceRecognitionNavGraph(
                 },
                 onNavigateToVerification = {
                     navController.navigate(Screen.Verification.route)
+                },
+                onNavigateToBenchmark = {
+                    navController.navigate(Screen.Benchmark.route)
                 }
+            )
+        }
+        composable(Screen.Benchmark.route) {
+            BenchmarkScreen(
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.DatabaseList.route) {

@@ -1,12 +1,14 @@
 package com.atharvakale.facerecognition.ml
 
 import android.graphics.Bitmap
+import android.graphics.PointF
 import android.graphics.RectF
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetector
+import com.google.mlkit.vision.face.FaceLandmark
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,17 +60,33 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val preprocessStart = System.nanoTime()
                     val frameBmp = imageProxy.toBitmap()
                     val boundingBox = RectF(face.boundingBox)
-                    val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, frameBmp.width, frameBmp.height)
-                    val croppedFace = FacePreprocessor.cropFace(frameBmp, expandedBox)
-                    val rotatedFace = FacePreprocessor.rotateBitmap(croppedFace, rotation, false, false)
-                    val finalFace = if (flipX) {
-                        FacePreprocessor.rotateBitmap(rotatedFace, 0, true, false)
+
+                    val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position
+                    val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position
+
+                    val scaled: Bitmap = if (leftEye != null && rightEye != null) {
+                        val aligned = FacePreprocessor.alignFace(frameBmp, leftEye, rightEye)
+                        frameBmp.recycle()
+                        if (flipX) {
+                            val flipped = FacePreprocessor.rotateBitmap(aligned, 0, true, false)
+                            flipped
+                        } else {
+                            aligned
+                        }
                     } else {
-                        rotatedFace
+                        val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, frameBmp.width, frameBmp.height)
+                        val croppedFace = FacePreprocessor.cropFace(frameBmp, expandedBox)
+                        val rotatedFace = FacePreprocessor.rotateBitmap(croppedFace, rotation, false, false)
+                        val finalFace = if (flipX) {
+                            FacePreprocessor.rotateBitmap(rotatedFace, 0, true, false)
+                        } else {
+                            rotatedFace
+                        }
+                        FacePreprocessor.scaleToInputSize(finalFace)
                     }
+
                     val rotatedWidth = if (rotation == 90 || rotation == 270) mediaImage.height else mediaImage.width
                     val rotatedHeight = if (rotation == 90 || rotation == 270) mediaImage.width else mediaImage.height
-                    val scaled = FacePreprocessor.scaleToInputSize(finalFace)
                     val preprocessingTimeMs = (System.nanoTime() - preprocessStart) / 1_000_000
 
                     val embeddingStart = System.nanoTime()

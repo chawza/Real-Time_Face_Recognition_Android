@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -33,6 +34,7 @@ fun MenuScreen(
     onNavigateToDatabase: () -> Unit,
     onNavigateToRecognition: () -> Unit,
     onNavigateToVerification: () -> Unit,
+    onNavigateToBenchmark: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     var showHyperparameterDialog by remember { mutableStateOf(false) }
@@ -86,6 +88,18 @@ fun MenuScreen(
                 modifier = Modifier.size(24.dp)
             )
             Text("  Face Verification", style = MaterialTheme.typography.titleMedium)
+        }
+
+        Button(
+            onClick = onNavigateToBenchmark,
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
+            Icon(
+                Icons.Default.Assessment,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+            Text("  ZIP Benchmark", style = MaterialTheme.typography.titleMedium)
         }
 
         Spacer(modifier = Modifier.height(32.dp))
