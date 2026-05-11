@@ -48,7 +48,8 @@ class FaceDetectionAnalyzer @Inject constructor(
         }
 
         val rotation = imageProxy.imageInfo.rotationDegrees
-        val inputImage = InputImage.fromMediaImage(mediaImage, rotation)
+        val frameBmp = imageProxy.toBitmap()
+        val inputImage = InputImage.fromBitmap(frameBmp, 0)
         val detectionStart = System.nanoTime()
 
         detector.process(inputImage)
@@ -58,35 +59,23 @@ class FaceDetectionAnalyzer @Inject constructor(
                 if (faces.isNotEmpty()) {
                     val face = faces[0]
                     val preprocessStart = System.nanoTime()
-                    val frameBmp = imageProxy.toBitmap()
                     val boundingBox = RectF(face.boundingBox)
 
                     val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position
                     val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position
 
                     val scaled: Bitmap = if (leftEye != null && rightEye != null) {
-                        val aligned = FacePreprocessor.alignFace(frameBmp, leftEye, rightEye)
-                        frameBmp.recycle()
-                        if (flipX) {
-                            val flipped = FacePreprocessor.rotateBitmap(aligned, 0, true, false)
-                            flipped
-                        } else {
-                            aligned
+                        FacePreprocessor.alignFace(frameBmp, leftEye, rightEye).also {
+                            frameBmp.recycle()
                         }
                     } else {
                         val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, frameBmp.width, frameBmp.height)
                         val croppedFace = FacePreprocessor.cropFace(frameBmp, expandedBox)
-                        val rotatedFace = FacePreprocessor.rotateBitmap(croppedFace, rotation, false, false)
-                        val finalFace = if (flipX) {
-                            FacePreprocessor.rotateBitmap(rotatedFace, 0, true, false)
-                        } else {
-                            rotatedFace
-                        }
-                        FacePreprocessor.scaleToInputSize(finalFace)
+                        FacePreprocessor.scaleToInputSize(croppedFace)
                     }
 
-                    val rotatedWidth = if (rotation == 90 || rotation == 270) mediaImage.height else mediaImage.width
-                    val rotatedHeight = if (rotation == 90 || rotation == 270) mediaImage.width else mediaImage.height
+                    val imageWidth = frameBmp.width
+                    val imageHeight = frameBmp.height
                     val preprocessingTimeMs = (System.nanoTime() - preprocessStart) / 1_000_000
 
                     val embeddingStart = System.nanoTime()
@@ -95,16 +84,18 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val embeddingTimeMs = (System.nanoTime() - embeddingStart) / 1_000_000
 
                     val result = AnalysisResult(
-                        scaled, embedding, boundingBox, rotatedWidth, rotatedHeight,
+                        scaled, embedding, boundingBox, imageWidth, imageHeight,
                         detectionTimeMs, preprocessingTimeMs, embeddingTimeMs
                     )
                     _latestResult.value = result
                     onResult(result)
                 } else {
+                    frameBmp.recycle()
                     onResult(null)
                 }
             }
             .addOnFailureListener {
+                frameBmp.recycle()
                 onResult(null)
             }
             .addOnCompleteListener {
