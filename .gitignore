@@ -14,6 +14,11 @@
 .cxx
 local.properties
 
+# Test images (local only, not committed)
+app/src/androidTest/assets/*.jpg
+app/src/androidTest/assets/*.png
+app/src/androidTest/assets/*.jpeg
+
 # graphify auto-generated outputs
 graphify-out/
 generate_graph.py

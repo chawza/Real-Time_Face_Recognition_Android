@@ -1,6 +1,5 @@
 package com.atharvakale.facerecognition
 
-import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -16,11 +15,10 @@ import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.google.mlkit.vision.face.FaceLandmark
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.InputStream
+import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.MappedByteBuffer
-import java.nio.channels.FileChannel
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -41,10 +39,14 @@ class FaceAlignmentBenchmarkTest {
         private const val REF_RIGHT_Y = 51.5014f
     }
 
-    private fun loadTestImage(name: String): Bitmap {
-        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context
-        val inputStream = context.assets.open(name)
-        val fullBitmap = BitmapFactory.decodeStream(inputStream)
+    private fun loadTestImagesDir(): File {
+        val context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext
+        return File(context.getExternalFilesDir(null), "benchmark_images")
+    }
+
+    private fun loadTestImage(file: File): Bitmap {
+        val fullBitmap = BitmapFactory.decodeFile(file.absolutePath)
+            ?: throw IllegalArgumentException("Cannot decode image: ${file.name}")
         val maxDim = 800
         val scale = minOf(maxDim.toFloat() / fullBitmap.width, maxDim.toFloat() / fullBitmap.height, 1f)
         if (scale >= 1f) return fullBitmap
@@ -178,6 +180,22 @@ class FaceAlignmentBenchmarkTest {
 
     @Test
     fun benchmarkAlignedVsOldPipeline() {
+        val imagesDir = loadTestImagesDir()
+        val imageFiles = imagesDir.listFiles()
+            ?.filter { it.extension.lowercase() in listOf("jpg", "jpeg", "png") }
+            ?.sortedBy { it.name }
+            ?: emptyList()
+
+        if (imageFiles.isEmpty()) {
+            Log.d(TAG, "================================================================")
+            Log.d(TAG, "SKIPPED: No test images found in ${imagesDir.absolutePath}")
+            Log.d(TAG, "To run this benchmark, push face images to the device:")
+            Log.d(TAG, "  adb shell mkdir -p ${imagesDir.absolutePath}")
+            Log.d(TAG, "  adb push <image>.jpg ${imagesDir.absolutePath}/")
+            Log.d(TAG, "================================================================")
+            return
+        }
+
         val interpreter = org.tensorflow.lite.Interpreter(loadModelBuffer())
 
         val options = FaceDetectorOptions.Builder()
@@ -186,8 +204,6 @@ class FaceAlignmentBenchmarkTest {
             .build()
         val detector = FaceDetection.getClient(options)
 
-        val imageFiles = listOf("Nabeel.jpg", "TestSample.jpg", "Amos.jpg", "Elang.jpg")
-
         val alignedResults = mutableListOf<EmbeddingResult>()
         val oldResults = mutableListOf<EmbeddingResult>()
 
@@ -195,9 +211,9 @@ class FaceAlignmentBenchmarkTest {
         Log.d(TAG, "FACE ALIGNMENT BENCHMARK (Android on-device)")
         Log.d(TAG, "================================================================")
 
-        for (fileName in imageFiles) {
-            val shortName = fileName.removeSuffix(".jpg")
-            val bitmap = loadTestImage(fileName)
+        for (file in imageFiles) {
+            val shortName = file.nameWithoutExtension
+            val bitmap = loadTestImage(file)
             val inputImage = InputImage.fromBitmap(bitmap, 0)
 
             val faces = com.google.android.gms.tasks.Tasks.await(detector.process(inputImage))
@@ -218,7 +234,7 @@ class FaceAlignmentBenchmarkTest {
                 Log.d(TAG, "  $shortName (aligned): OK  norm=${String.format("%.6f", sqrt(alignedEmb.fold(0f) { a, v -> a + v * v }))}")
             }
 
-            val bitmap2 = loadTestImage(fileName)
+            val bitmap2 = loadTestImage(file)
             val inputImage2 = InputImage.fromBitmap(bitmap2, 0)
             val faces2 = com.google.android.gms.tasks.Tasks.await(detector.process(inputImage2))
             if (faces2.isNotEmpty()) {
@@ -251,32 +267,6 @@ class FaceAlignmentBenchmarkTest {
         Log.d(TAG, "COSINE SIMILARITY MATRIX — OLD CROP+SCALE PIPELINE")
         Log.d(TAG, "================================================================")
         printSimilarityMatrix(oldResults)
-
-        Log.d(TAG, "")
-        Log.d(TAG, "================================================================")
-        Log.d(TAG, "VERDICT")
-        Log.d(TAG, "================================================================")
-        val nabeelAligned = alignedResults.find { it.name == "Nabeel" }
-        val testAligned = alignedResults.find { it.name == "TestSample" }
-        if (nabeelAligned != null && testAligned != null) {
-            val samePerson = cosineSimilarity(nabeelAligned.embedding, testAligned.embedding)
-            val confPercent = samePerson * 100f
-            Log.d(TAG, "  ALIGNED: Nabeel vs TestSample = ${String.format("%.4f", samePerson)} (${String.format("%.1f%%", confPercent)} confidence)")
-            if (confPercent >= 90f) {
-                Log.d(TAG, "  ✓ EXCELLENT — >= 90% for same person")
-            } else if (confPercent >= 80f) {
-                Log.d(TAG, "  ✓ GOOD — >= 80% for same person")
-            } else {
-                Log.d(TAG, "  ✗ POOR — < 80% for same person, needs investigation")
-            }
-        }
-
-        val nabeelOld = oldResults.find { it.name == "Nabeel" }
-        val testOld = oldResults.find { it.name == "TestSample" }
-        if (nabeelOld != null && testOld != null) {
-            val samePersonOld = cosineSimilarity(nabeelOld.embedding, testOld.embedding)
-            Log.d(TAG, "  OLD:     Nabeel vs TestSample = ${String.format("%.4f", samePersonOld)} (${String.format("%.1f%%", samePersonOld * 100f)} confidence)")
-        }
 
         interpreter.close()
     }
