@@ -1,9 +1,6 @@
 # Real-Time Face Recognition — Android
 
 An offline Android app that performs real-time face recognition using **MobileFaceNet** (TensorFlow Lite). Register faces via camera or gallery, then identify people in a live camera feed — no server, no re-training required.
-
-**[Download on Google Play](https://play.google.com/store/apps/details?id=com.atharvakale.facerecognition)**
-
 ---
 
 ## Features
