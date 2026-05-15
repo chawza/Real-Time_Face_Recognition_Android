@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Face Alignment — Interactive Explainer</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --card: #16213e;
+    --border: #0f3460;
+    --accent: #e94560;
+    --accent2: #00b4d8;
+    --text: #eaeaea;
+    --muted: #8892b0;
+    --green: #2ecc71;
+    --yellow: #f1c40f;
+    --orange: #e67e22;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    text-align: center;
+    padding: 24px 16px 8px;
+  }
+  header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header p {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 4px;
+  }
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    max-width: 1200px;
+    padding: 16px;
+  }
+  @media (max-width: 1024px) {
+    .main-grid { grid-template-columns: 1fr 1fr; }
+    .result-panel { grid-column: 1 / -1; justify-self: center; max-width: 500px; }
+  }
+  @media (max-width: 640px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .panel h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--accent2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  canvas {
+    border-radius: 8px;
+    display: block;
+    touch-action: none;
+  }
+  #sourceCanvas { cursor: grab; max-width: 100%; height: auto; }
+  #sourceCanvas:active { cursor: grabbing; }
+  .hint {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .math-panel {
+    font-size: 0.8rem;
+    overflow-y: auto;
+    max-height: 520px;
+    width: 100%;
+  }
+  .math-section {
+    margin-bottom: 12px;
+  }
+  .math-section h3 {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+  }
+  .math-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    color: var(--text);
+  }
+  .math-row .label { color: var(--muted); }
+  .math-row .value {
+    font-variant-numeric: tabular-nums;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  }
+  .math-row .value.highlight { color: var(--accent2); font-weight: 600; }
+  .matrix-display {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    color: var(--green);
+    margin-top: 8px;
+    padding: 8px;
+    background: #0a0a1a;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    white-space: pre;
+    line-height: 1.6;
+    text-align: center;
+  }
+  .formula-box {
+    margin-top: 8px;
+    padding: 8px;
+    background: #0a0a1a;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .formula-box .key { color: var(--accent2); }
+  .formula-box .op  { color: var(--orange); }
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    padding: 12px 16px 24px;
+    max-width: 1200px;
+    width: 100%;
+  }
+  .presets button {
+    background: var(--border);
+    color: var(--text);
+    border: 1px solid transparent;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+  .presets button:hover {
+    background: var(--accent2);
+    color: #000;
+    border-color: var(--accent2);
+  }
+  .presets button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Face Alignment: Affine Transform</h1>
+  <p>Drag the eyes on the source face to see how <code>alignFace()</code> corrects pose</p>
+</header>
+
+<div class="main-grid">
+  <!-- SOURCE PANEL -->
+  <div class="panel">
+    <h2>Source Face</h2>
+    <canvas id="sourceCanvas" width="320" height="320"></canvas>
+    <p class="hint">Drag left (blue) or right (red) eye to move</p>
+  </div>
+
+  <!-- MATH PANEL -->
+  <div class="panel math-panel" id="mathPanel">
+    <h2>Transform Math</h2>
+  </div>
+
+  <!-- RESULT PANEL -->
+  <div class="panel result-panel">
+    <h2>Aligned Result &mdash; 112&times;112</h2>
+    <canvas id="resultCanvas" width="224" height="224" style="max-width:100%;height:auto;"></canvas>
+    <p class="hint">Gray background = same as <code>Color.rgb(128,128,128)</code> in Kotlin</p>
+  </div>
+</div>
+
+<div class="presets" id="presetBar"></div>
+
+<script>
+// ─── Constants (matching FacePreprocessor.kt) ─────────────────────────────
+const INPUT_SIZE  = 112;
+const REF_LEFT_X  = 38.2946;
+const REF_LEFT_Y  = 51.6963;
+const REF_RIGHT_X = 73.5318;
+const REF_RIGHT_Y = 51.5014;
+const IMAGE_MEAN  = 128;   // for reference info only
+
+// ─── Canvas elements ──────────────────────────────────────────────────────
+const srcCanvas  = document.getElementById('sourceCanvas');
+const srcCtx     = srcCanvas.getContext('2d');
+const resCanvas  = document.getElementById('resultCanvas');
+const resCtx     = resCanvas.getContext('2d');
+
+// display size: resCanvas is 224×224 displayed, with 112×112 model space ×2
+const RESULT_DISPLAY_SCALE = 2;
+
+// ─── State ─────────────────────────────────────────────────────────────────
+let leftEye  = { x: 110, y: 148 };
+let rightEye = { x: 200, y: 152 };
+let dragging = null; // 'left' | 'right' | null
+
+// Hit-test radius for eye dragging (relaxed for touch friendliness)
+const HIT_RADIUS = 22;
+
+// ─── Math helpers ─────────────────────────────────────────────────────────
+function dist(a, b) {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function angle(a, b) {
+  return Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+function toDeg(r) { return (r * 180 / Math.PI); }
+
+function midpoint(a, b) {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+// ─── Transform computation (exact replica of alignFace logic) ──────────────
+function computeTransform() {
+  // Ensure srcLeft is actually left of srcRight
+  let sl, sr;
+  if (leftEye.x <= rightEye.x) {
+    sl = leftEye; sr = rightEye;
+  } else {
+    sl = rightEye; sr = leftEye;
+  }
+
+  const srcCx   = (sl.x + sr.x) / 2;
+  const srcCy   = (sl.y + sr.y) / 2;
+  const srcDx   = sr.x - sl.x;
+  const srcDy   = sr.y - sl.y;
+  const srcDist = Math.hypot(srcDx, srcDy);
+  const srcAngle = Math.atan2(srcDy, srcDx);
+
+  const tgtDx   = REF_RIGHT_X - REF_LEFT_X;
+  const tgtDy   = REF_RIGHT_Y - REF_LEFT_Y;
+  const tgtDist = Math.hypot(tgtDx, tgtDy);
+  const tgtCx   = (REF_LEFT_X + REF_RIGHT_X) / 2;
+  const tgtCy   = (REF_LEFT_Y + REF_RIGHT_Y) / 2;
+  const tgtAngle = Math.atan2(tgtDy, tgtDx);
+
+  const scale  = tgtDist / srcDist;
+  const rotRad = tgtAngle - srcAngle;
+  const cosR   = Math.cos(rotRad) * scale;
+  const sinR   = Math.sin(rotRad) * scale;
+  const a = cosR;
+  const b = -sinR;
+  const c = sinR;
+  const d = cosR;
+  const tx = tgtCx - a * srcCx - b * srcCy;
+  const ty = tgtCy - c * srcCx - d * srcCy;
+
+  return {
+    srcLeft: sl, srcRight: sr,
+    srcCx, srcCy, srcDist, srcAngle,
+    tgtCx, tgtCy, tgtDist, tgtAngle,
+    scale, rotRad,
+    a, b, c, d, tx, ty,
+    matrix: [a, b, tx, c, d, ty],
+  };
+}
+
+// ─── Face drawing (pure, no annotations, parameterized by eye positions) ──
+function drawFace(ctx, lx, ly, rx, ry) {
+  const cx = (lx + rx) / 2;
+  const cy = (ly + ry) / 2;
+  const d  = Math.hypot(rx - lx, ry - ly);
+
+  // ── Head ellipse ──────────────────────────────────────────────────────────
+  const hcx = cx;
+  const hcy = cy + d * 0.08;
+  const hrx = d * 1.35;
+  const hry = d * 1.75;
+
+  ctx.beginPath();
+  ctx.ellipse(hcx, hcy, hrx, hry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = '#f3d5b5';
+  ctx.fill();
+  ctx.strokeStyle = '#c4a484';
+  ctx.lineWidth = d * 0.018;
+  ctx.stroke();
+
+  // ── Ears ──────────────────────────────────────────────────────────────────
+  ctx.fillStyle = '#ecc9a8';
+  const ew = d * 0.11, eh = d * 0.24;
+  ctx.beginPath();
+  ctx.ellipse(lx - d * 0.48, cy, ew, eh, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(rx + d * 0.48, cy, ew, eh, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+
+  // ── Hair ──────────────────────────────────────────────────────────────────
+  ctx.fillStyle = '#2c1810';
+  ctx.beginPath();
+  ctx.ellipse(hcx, hcy - d * 0.45, hrx * 1.05, hry * 0.9, 0, Math.PI, 0);
+  ctx.fill();
+
+  // ── Eyebrows ──────────────────────────────────────────────────────────────
+  ctx.strokeStyle = '#3a2010';
+  ctx.lineWidth = d * 0.035;
+  ctx.lineCap = 'round';
+  const ba = d * 0.10;
+  ctx.beginPath();
+  ctx.moveTo(lx - d * 0.17, ly - d * 0.16);
+  ctx.quadraticCurveTo(lx, ly - d * 0.16 - ba, lx + d * 0.17, ly - d * 0.13);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(rx - d * 0.17, ry - d * 0.13);
+  ctx.quadraticCurveTo(rx, ry - d * 0.16 - ba, rx + d * 0.17, ry - d * 0.16);
+  ctx.stroke();
+
+  // ── Eyes (white with iris+pupil) ──────────────────────────────────────────
+  const er = d * 0.13;
+  ctx.lineWidth = d * 0.013;
+  for (const [ex, ey] of [[lx,ly],[rx,ry]]) {
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, er, er * 0.75, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ex, ey, er * 0.55, 0, Math.PI * 2);
+    ctx.fillStyle = '#4a7c59';
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(ex, ey, er * 0.28, 0, Math.PI * 2);
+    ctx.fillStyle = '#111';
+    ctx.fill();
+  }
+
+  // ── Nose ──────────────────────────────────────────────────────────────────
+  ctx.strokeStyle = '#c4947c';
+  ctx.lineWidth = d * 0.014;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + d * 0.07);
+  ctx.quadraticCurveTo(cx - d * 0.04, cy + d * 0.20, cx - d * 0.05, cy + d * 0.32);
+  ctx.quadraticCurveTo(cx, cy + d * 0.37, cx + d * 0.05, cy + d * 0.32);
+  ctx.stroke();
+
+  // ── Mouth ─────────────────────────────────────────────────────────────────
+  const my = cy + d * 0.555;
+  ctx.strokeStyle = '#d4756b';
+  ctx.lineWidth = d * 0.022;
+  ctx.beginPath();
+  ctx.moveTo(cx - d * 0.23, my);
+  ctx.quadraticCurveTo(cx, my + d * 0.07, cx + d * 0.23, my);
+  ctx.stroke();
+}
+
+// ─── Annotation overlay on source canvas ──────────────────────────────────
+function drawSourceAnnotations(ctx, lx, ly, rx, ry) {
+  const d = Math.hypot(rx - lx, ry - ly);
+
+  // line connecting eyes
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(lx, ly);
+  ctx.lineTo(rx, ry);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // center dot
+  const cx = (lx + rx) / 2, cy = (ly + ry) / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // angle arc from horizontal
+  const ang = Math.atan2(ry - ly, rx - lx);
+  const arcR = d * 0.28;
+  ctx.strokeStyle = 'rgba(241,196,15,0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(lx, ly, arcR, Math.min(0, ang), Math.max(0, ang));
+  ctx.stroke();
+
+  // horizontal reference line
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = 'rgba(241,196,15,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(lx + arcR * 0.7, ly);
+  ctx.lineTo(lx + d * 1.2, ly);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // eye highlight rings
+  ctx.strokeStyle = '#00b4d8';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(lx, ly, d * 0.18, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#e94560';
+  ctx.beginPath();
+  ctx.arc(rx, ry, d * 0.18, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // labels
+  ctx.font = `bold ${Math.max(10, d*0.09)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#00b4d8';
+  ctx.fillText('L', lx, ly - d * 0.25);
+  ctx.fillStyle = '#e94560';
+  ctx.fillText('R', rx, ry - d * 0.25);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fillText('C', cx, cy + d * 0.16);
+  ctx.fillStyle = 'rgba(241,196,15,0.9)';
+  const angDeg = (ang * 180 / Math.PI).toFixed(1);
+  ctx.fillText(`${angDeg}°`, lx + d * 0.35, ly - d * 0.12);
+}
+
+// ─── Reference guides on result canvas ────────────────────────────────────
+function drawReferenceGuides(ctx, s) {
+  // faint green dots at reference positions
+  ctx.fillStyle = 'rgba(46,204,113,0.5)';
+  [
+    [REF_LEFT_X * s,  REF_LEFT_Y * s],
+    [REF_RIGHT_X * s, REF_RIGHT_Y * s],
+  ].forEach(([rx, ry]) => {
+    ctx.beginPath();
+    ctx.arc(rx, ry, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // crosshair lines through reference positions
+  ctx.strokeStyle = 'rgba(46,204,113,0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  ctx.beginPath();
+  const rcy = (REF_LEFT_Y + REF_RIGHT_Y) / 2 * s;
+  ctx.moveTo(0, rcy);
+  ctx.lineTo(INPUT_SIZE * s, rcy);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Label
+  ctx.fillStyle = 'rgba(46,204,113,0.7)';
+  ctx.font = `${10 * s / 2}px sans-serif`;
+  ctx.textAlign = 'left';
+  ctx.fillText('ref', REF_RIGHT_X * s + 5, REF_RIGHT_Y * s - 3);
+}
+
+// ─── Render ────────────────────────────────────────────────────────────────
+function redraw() {
+  const t = computeTransform();
+  const s = RESULT_DISPLAY_SCALE;
+
+  // ── Source canvas ──────────────────────────────────────────────────────
+  srcCtx.clearRect(0, 0, 320, 320);
+
+  // grid background
+  srcCtx.strokeStyle = 'rgba(255,255,255,0.03)';
+  srcCtx.lineWidth = 1;
+  for (let i = 0; i <= 320; i += 32) {
+    srcCtx.beginPath(); srcCtx.moveTo(i, 0); srcCtx.lineTo(i, 320); srcCtx.stroke();
+    srcCtx.beginPath(); srcCtx.moveTo(0, i); srcCtx.lineTo(320, i); srcCtx.stroke();
+  }
+
+  drawFace(srcCtx, leftEye.x, leftEye.y, rightEye.x, rightEye.y);
+  drawSourceAnnotations(srcCtx, leftEye.x, leftEye.y, rightEye.x, rightEye.y);
+
+  // ── Result canvas ──────────────────────────────────────────────────────
+  const Rw = INPUT_SIZE * s;
+  const Rh = INPUT_SIZE * s;
+
+  // gray background (Color.rgb(128,128,128) equivalent)
+  resCtx.fillStyle = '#808080';
+  resCtx.fillRect(0, 0, Rw, Rh);
+
+  // apply the affine transform
+  resCtx.save();
+  // setTransform replaces all previous transforms.
+  // Canvas2D setTransform(a,b,c,d,e,f) => matrix [[a,c,e],[b,d,f],[0,0,1]]
+  // We want to scale by s then apply the alignment matrix.
+  // Combined: [[s*a, s*b, s*tx], [s*c, s*d, s*ty], [0,0,1]]
+  // In Canvas 2D convention: setTransform(s*a, s*c, s*b, s*d, s*tx, s*ty)
+  resCtx.setTransform(
+    s * t.a, s * t.c,    // m11, m12
+    s * t.b, s * t.d,    // m21, m22
+    s * t.tx, s * t.ty   // dx, dy
+  );
+  drawFace(resCtx, leftEye.x, leftEye.y, rightEye.x, rightEye.y);
+  resCtx.restore();
+
+  // reference guides on top
+  drawReferenceGuides(resCtx, s);
+
+  // ── Math panel ─────────────────────────────────────────────────────────
+  updateMathPanel(t);
+}
+
+// ─── Math panel rendering ─────────────────────────────────────────────────
+function updateMathPanel(t) {
+  const panel = document.getElementById('mathPanel');
+  panel.innerHTML = '';
+
+  function sec(title, rows) {
+    const div = document.createElement('div');
+    div.className = 'math-section';
+    div.innerHTML = `<h3>${title}</h3>`;
+    rows.forEach(([label, value, cls]) => {
+      div.innerHTML += `<div class="math-row">
+        <span class="label">${label}</span>
+        <span class="value ${cls || ''}">${value}</span>
+      </div>`;
+    });
+    panel.appendChild(div);
+  }
+
+  sec('Source Eyes (pixels)', [
+    ['Left',     `(${leftEye.x.toFixed(1)}, ${leftEye.y.toFixed(1)})`],
+    ['Right',    `(${rightEye.x.toFixed(1)}, ${rightEye.y.toFixed(1)})`],
+    ['Center',   `(${t.srcCx.toFixed(1)}, ${t.srcCy.toFixed(1)})`],
+    ['Distance', `${t.srcDist.toFixed(2)} px`],
+    ['Angle',    `${toDeg(t.srcAngle).toFixed(2)}°`],
+  ]);
+
+  sec('Reference Eyes (112\u00d7112 model)', [
+    ['Left',     `(${REF_LEFT_X.toFixed(2)}, ${REF_LEFT_Y.toFixed(2)})`],
+    ['Right',    `(${REF_RIGHT_X.toFixed(2)}, ${REF_RIGHT_Y.toFixed(2)})`],
+    ['Center',   `(${t.tgtCx.toFixed(2)}, ${t.tgtCy.toFixed(2)})`],
+    ['Distance', `${t.tgtDist.toFixed(2)} px`],
+    ['Angle',    `${toDeg(t.tgtAngle).toFixed(2)}°`],
+  ]);
+
+  sec('Computed Transform', [
+    ['Scale',    `${(t.scale * 100).toFixed(1)}%`, 'highlight'],
+    ['Rotation', `${toDeg(t.rotRad).toFixed(2)}°`, 'highlight'],
+  ]);
+
+  const m = [
+    `  \u250c                          \u2510`,
+    `  \u2502 ${t.a.toFixed(4).padStart(7)}  ${t.b.toFixed(4).padStart(7)}  ${t.tx.toFixed(4).padStart(7)} \u2502`,
+    `  \u2502 ${t.c.toFixed(4).padStart(7)}  ${t.d.toFixed(4).padStart(7)}  ${t.ty.toFixed(4).padStart(7)} \u2502`,
+    `  \u2502 ${'0.0000'.padStart(7)}  ${'0.0000'.padStart(7)}  ${'1.0000'.padStart(7)} \u2502`,
+    `  \u2514                          \u2518`,
+  ].join('\n');
+
+  const matDiv = document.createElement('div');
+  matDiv.className = 'matrix-display';
+  matDiv.textContent = 'Affine Matrix:\n' + m;
+  panel.appendChild(matDiv);
+
+  const formDiv = document.createElement('div');
+  formDiv.className = 'formula-box';
+  formDiv.innerHTML = [
+    `<span class="key">scale</span>  <span class="op">=</span> tgtDist <span class="op">/</span> srcDist`,
+    `<span class="key">rot</span>    <span class="op">=</span> tgtAngle <span class="op">-</span> srcAngle`,
+    `<span class="key">a</span>      <span class="op">=</span> <span class="key">cos</span>(rot) <span class="op">\u00d7</span> scale  <span class="key">b</span>  <span class="op">=</span> <span class="op">-</span><span class="key">sin</span>(rot) <span class="op">\u00d7</span> scale`,
+    `<span class="key">c</span>      <span class="op">=</span> <span class="key">sin</span>(rot) <span class="op">\u00d7</span> scale  <span class="key">d</span>  <span class="op">=</span> <span class="key">cos</span>(rot) <span class="op">\u00d7</span> scale`,
+    `<span class="key">tx</span>     <span class="op">=</span> tgtCx <span class="op">-</span> a&middot;srcCx <span class="op">-</span> b&middot;srcCy`,
+    `<span class="key">ty</span>     <span class="op">=</span> tgtCy <span class="op">-</span> c&middot;srcCx <span class="op">-</span> d&middot;srcCy`,
+  ].join('<br>');
+  panel.appendChild(formDiv);
+}
+
+// ─── Interaction ──────────────────────────────────────────────────────────
+function canvasPos(e) {
+  const rect = srcCanvas.getBoundingClientRect();
+  const scaleX = 320 / rect.width;
+  const scaleY = 320 / rect.height;
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
+  };
+}
+
+function hitEye(pos) {
+  if (Math.hypot(pos.x - leftEye.x,  pos.y - leftEye.y)  < HIT_RADIUS) return 'left';
+  if (Math.hypot(pos.x - rightEye.x, pos.y - rightEye.y) < HIT_RADIUS) return 'right';
+  return null;
+}
+
+function onDown(e) {
+  const pos = canvasPos(e);
+  dragging = hitEye(pos);
+  if (dragging) {
+    e.preventDefault();
+    srcCanvas.style.cursor = 'grabbing';
+  }
+}
+
+function onMove(e) {
+  if (!dragging) return;
+  e.preventDefault();
+  const pos = canvasPos(e);
+  const pad = 20;
+  pos.x = Math.max(pad, Math.min(320 - pad, pos.x));
+  pos.y = Math.max(pad, Math.min(320 - pad, pos.y));
+  if (dragging === 'left') {
+    leftEye.x = pos.x; leftEye.y = pos.y;
+  } else {
+    rightEye.x = pos.x; rightEye.y = pos.y;
+  }
+  redraw();
+  highlightActivePreset();
+}
+
+function onUp(e) {
+  dragging = null;
+  srcCanvas.style.cursor = 'grab';
+}
+
+srcCanvas.addEventListener('mousedown',  onDown);
+srcCanvas.addEventListener('mousemove',  onMove);
+srcCanvas.addEventListener('mouseup',    onUp);
+srcCanvas.addEventListener('mouseleave', onUp);
+srcCanvas.addEventListener('touchstart', onDown, { passive: false });
+srcCanvas.addEventListener('touchmove',  onMove, { passive: false });
+srcCanvas.addEventListener('touchend',   onUp);
+
+// ─── Presets ──────────────────────────────────────────────────────────────
+const PRESETS = {
+  'Straight':         { left: { x: 105, y: 150 }, right: { x: 195, y: 150 } },
+  'Tilted Left':      { left: { x: 115, y: 170 }, right: { x: 205, y: 140 } },
+  'Tilted Right':     { left: { x: 105, y: 135 }, right: { x: 195, y: 165 } },
+  'Close Up':         { left: { x:  75, y: 150 }, right: { x: 230, y: 150 } },
+  'Far Away':         { left: { x: 130, y: 150 }, right: { x: 180, y: 150 } },
+  'Upside Down':      { left: { x: 195, y: 185 }, right: { x: 105, y: 115 } },
+};
+
+function setPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  leftEye.x  = p.left.x;
+  leftEye.y  = p.left.y;
+  rightEye.x = p.right.x;
+  rightEye.y = p.right.y;
+  redraw();
+  highlightPresetButton(name);
+}
+
+let activePreset = null;
+function highlightPresetButton(name) {
+  activePreset = name;
+  document.querySelectorAll('#presetBar button').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === name);
+  });
+}
+function highlightActivePreset() {
+  activePreset = null;
+  document.querySelectorAll('#presetBar button').forEach(b => b.classList.remove('active'));
+}
+
+const presetBar = document.getElementById('presetBar');
+Object.keys(PRESETS).forEach(name => {
+  const btn = document.createElement('button');
+  btn.textContent = name;
+  btn.addEventListener('click', () => setPreset(name));
+  presetBar.appendChild(btn);
+});
+
+// ─── Initial render ───────────────────────────────────────────────────────
+redraw();
+highlightPresetButton('Straight');
+</script>
+
+</body>
+</html>
