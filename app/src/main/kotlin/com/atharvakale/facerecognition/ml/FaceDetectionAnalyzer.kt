@@ -66,10 +66,14 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position
 
                     val scaled: Bitmap = if (leftEye != null && rightEye != null) {
+                        // uses ML kit eyes data to align captured face. this is the idea case for highest accuracy
                         FacePreprocessor.alignFace(frameBmp, leftEye, rightEye).also {
                             frameBmp.recycle()
                         }
                     } else {
+                        // fallback without alignment. just pass the face from the captured bounding box
+                        // accuracy should be not as great as eyes alignment
+                        // TODO: compare the accuracy difference
                         val expandedBox = FacePreprocessor.expandBoundingBox(boundingBox, frameBmp.width, frameBmp.height)
                         val croppedFace = FacePreprocessor.cropFace(frameBmp, expandedBox)
                         FacePreprocessor.scaleToInputSize(croppedFace)
