@@ -13,6 +13,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
+import androidx.core.graphics.createBitmap
 
 object FacePreprocessor {
 
@@ -59,7 +60,7 @@ object FacePreprocessor {
         val matrix = Matrix()
         matrix.setValues(floatArrayOf(a, b, tx, c, d, ty, 0f, 0f, 1f))
 
-        val result = Bitmap.createBitmap(INPUT_SIZE, INPUT_SIZE, Bitmap.Config.ARGB_8888)
+        val result = createBitmap(INPUT_SIZE, INPUT_SIZE)
         val canvas = Canvas(result)
         canvas.drawColor(Color.rgb(128, 128, 128))
         canvas.drawBitmap(source, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
@@ -69,7 +70,7 @@ object FacePreprocessor {
     fun cropFace(source: Bitmap, boundingBox: RectF): Bitmap {
         val width = boundingBox.width().toInt().coerceAtLeast(1)
         val height = boundingBox.height().toInt().coerceAtLeast(1)
-        val resultBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val resultBitmap = createBitmap(width, height)
         val canvas = Canvas(resultBitmap)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG)
         paint.color = Color.WHITE
