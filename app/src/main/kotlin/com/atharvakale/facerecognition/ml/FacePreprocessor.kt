@@ -25,41 +25,52 @@ object FacePreprocessor {
     private const val REF_RIGHT_X = 73.5318f
     private const val REF_RIGHT_Y = 51.5014f
 
+
+    // mobile net variables?
+    val tgtDx = REF_RIGHT_X - REF_LEFT_X
+    val tgtDy = REF_RIGHT_Y - REF_LEFT_Y
+    val tgtDist = sqrt(tgtDx * tgtDx + tgtDy * tgtDy)
+    val tgtCx = (REF_LEFT_X + REF_RIGHT_X) / 2f
+    val tgtCy = (REF_LEFT_Y + REF_RIGHT_Y) / 2f
+    val tgtAngle = atan2(tgtDy, tgtDx)
+
     fun alignFace(source: Bitmap, leftEye: PointF, rightEye: PointF): Bitmap {
         val srcLeft: PointF
         val srcRight: PointF
+
+        // make sure eye ordering is right
         if (leftEye.x <= rightEye.x) {
             srcLeft = leftEye; srcRight = rightEye
         } else {
             srcLeft = rightEye; srcRight = leftEye
         }
 
+        // eye mid point
         val srcCx = (srcLeft.x + srcRight.x) / 2f
         val srcCy = (srcLeft.y + srcRight.y) / 2f
+
+        // width between eyes
         val srcDx = srcRight.x - srcLeft.x
         val srcDy = srcRight.y - srcLeft.y
-        val srcDist = sqrt(srcDx * srcDx + srcDy * srcDy)
+        val srcDist = sqrt(srcDx * srcDx + srcDy * srcDy)  // using Euclidean distance
+
+        // tilt by eye angle
         val srcAngle = atan2(srcDy, srcDx)
 
-        val tgtDx = REF_RIGHT_X - REF_LEFT_X
-        val tgtDy = REF_RIGHT_Y - REF_LEFT_Y
-        val tgtDist = sqrt(tgtDx * tgtDx + tgtDy * tgtDy)
-        val tgtCx = (REF_LEFT_X + REF_RIGHT_X) / 2f
-        val tgtCy = (REF_LEFT_Y + REF_RIGHT_Y) / 2f
-        val tgtAngle = atan2(tgtDy, tgtDx)
-
+        // compute scaling and rotation
         val scale = tgtDist / srcDist
         val rotRad = tgtAngle - srcAngle
         val cosR = cos(rotRad) * scale
         val sinR = sin(rotRad) * scale
 
+        // built assign matrix
         val a = cosR; val b = -sinR; val c = sinR; val d = cosR
         val tx = tgtCx - a * srcCx - b * srcCy
         val ty = tgtCy - c * srcCx - d * srcCy
-
         val matrix = Matrix()
         matrix.setValues(floatArrayOf(a, b, tx, c, d, ty, 0f, 0f, 1f))
 
+        // apply affine transformation
         val result = createBitmap(INPUT_SIZE, INPUT_SIZE)
         val canvas = Canvas(result)
         canvas.drawColor(Color.rgb(128, 128, 128))
