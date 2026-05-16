@@ -1,7 +1,6 @@
 package com.atharvakale.facerecognition.ml
 
 import android.graphics.Bitmap
-import android.graphics.PointF
 import android.graphics.RectF
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
@@ -10,8 +9,6 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetector
 import com.google.mlkit.vision.face.FaceLandmark
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,7 +33,6 @@ class FaceDetectionAnalyzer @Inject constructor(
 ) {
 
     private val _latestResult = MutableStateFlow<AnalysisResult?>(null)
-    val latestResult: StateFlow<AnalysisResult?> = _latestResult.asStateFlow()
 
     @OptIn(ExperimentalGetImage::class)
     fun analyze(imageProxy: ImageProxy, flipX: Boolean, onResult: (AnalysisResult?) -> Unit) {
@@ -79,8 +75,6 @@ class FaceDetectionAnalyzer @Inject constructor(
                         FacePreprocessor.scaleToInputSize(croppedFace)
                     }
 
-                    val imageWidth = frameBmp.width
-                    val imageHeight = frameBmp.height
                     val preprocessingTimeMs = (System.nanoTime() - preprocessStart) / 1_000_000
 
                     val embeddingStart = System.nanoTime()
@@ -88,6 +82,7 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val embedding = embeddingExtractor.getEmbedding(inputBuffer)
                     val embeddingTimeMs = (System.nanoTime() - embeddingStart) / 1_000_000
 
+                    val imageWidth = frameBmp.width; val imageHeight = frameBmp.height
                     val result = AnalysisResult(
                         scaled, embedding, boundingBox, imageWidth, imageHeight,
                         detectionTimeMs, preprocessingTimeMs, embeddingTimeMs
