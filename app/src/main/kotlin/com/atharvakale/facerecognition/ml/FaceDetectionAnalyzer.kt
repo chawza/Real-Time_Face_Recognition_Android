@@ -56,6 +56,8 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val preprocessStart = System.nanoTime()
                     val boundingBox = RectF(face.boundingBox)
 
+                    val imageWidth = frameBmp.width; val imageHeight = frameBmp.height
+
                     val leftEye = face.getLandmark(FaceLandmark.LEFT_EYE)?.position
                     val rightEye = face.getLandmark(FaceLandmark.RIGHT_EYE)?.position
 
@@ -79,8 +81,6 @@ class FaceDetectionAnalyzer @Inject constructor(
                     val inputBuffer = FacePreprocessor.toNormalizedRgbBuffer(scaled)
                     val embedding = embeddingExtractor.getEmbedding(inputBuffer)
                     val embeddingTimeMs = (System.nanoTime() - embeddingStart) / 1_000_000
-
-                    val imageWidth = frameBmp.width; val imageHeight = frameBmp.height
                     val result = AnalysisResult(
                         scaled, embedding, boundingBox, imageWidth, imageHeight,
                         detectionTimeMs, preprocessingTimeMs, embeddingTimeMs
