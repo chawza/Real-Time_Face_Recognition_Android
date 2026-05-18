@@ -43,9 +43,8 @@ class FaceDetectionAnalyzer @Inject constructor(
             return
         }
 
-        var frameBmp: Bitmap? = null
-        val imageRotation = imageProxy.imageInfo.rotationDegrees
-        val inputImage = InputImage.fromMediaImage(mediaImage, imageRotation)
+        val frameBmp = imageProxy.toBitmap()
+        val inputImage = InputImage.fromBitmap(frameBmp, 0)
         val detectionStart = System.nanoTime()
 
         detector.process(inputImage)
@@ -54,7 +53,6 @@ class FaceDetectionAnalyzer @Inject constructor(
 
                 if (faces.isNotEmpty()) {
                     val face = faces[0]
-                    frameBmp = imageProxy.toBitmap()
                     val preprocessStart = System.nanoTime()
                     val boundingBox = RectF(face.boundingBox)
 
@@ -90,12 +88,12 @@ class FaceDetectionAnalyzer @Inject constructor(
                     _latestResult.value = result
                     onResult(result)
                 } else {
-                    frameBmp?.recycle()
+                    frameBmp.recycle()
                     onResult(null)
                 }
             }
             .addOnFailureListener {
-                frameBmp?.recycle()
+                frameBmp.recycle()
                 onResult(null)
             }
             .addOnCompleteListener {
