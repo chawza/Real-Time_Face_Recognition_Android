@@ -13,6 +13,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+app/release
+.kotlin/errors
 
 # Test images (local only, not committed)
 app/src/androidTest/assets/*.jpg
